@@ -1,4 +1,7 @@
 
+body{
+  background-color: blue;
+}
 .welcome{
   width: 600px;
   height: 400px;
@@ -6,30 +9,46 @@
   display: flex;
   margin-left: auto;
   margin-right: auto;
-  border: solid 1px red;
 }
 
 .logo{
   width: 340px;
   margin-right: 10px;
-  border: solid 1px red;
+  /*border: solid 1px red;*/
 }
 
 .login, .signup{
-  width: 250px;
-  border: solid 1px red;
+  width: 244px;
+  /*border: solid 1px red;*/
+  font-size: 14px;
+  padding: 3px;
+  background-color: white;
 }
 
 .login{
   margin-bottom: 10px;
+  height: 84px;
+}
+
+.signup{
+  height: 294px;
+}
+
+.signup h3{
+  text-align: center;
+}
+
+input[type="submit"]{
+  width: 80px;
 }
 
 label{
   display: inline-block;
-  width: 50%;
+  width: 35%;
+  height: 25px;
 }
 
 input{
   float: right;
-  width: 50%;
+  width: 60%;
 }
