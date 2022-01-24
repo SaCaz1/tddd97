@@ -1,0 +1,35 @@
+
+.welcome{
+  width: 600px;
+  height: 400px;
+  margin-top: 100px;
+  display: flex;
+  margin-left: auto;
+  margin-right: auto;
+  border: solid 1px red;
+}
+
+.logo{
+  width: 340px;
+  margin-right: 10px;
+  border: solid 1px red;
+}
+
+.login, .signup{
+  width: 250px;
+  border: solid 1px red;
+}
+
+.login{
+  margin-bottom: 10px;
+}
+
+label{
+  display: inline-block;
+  width: 50%;
+}
+
+input{
+  float: right;
+  width: 50%;
+}
