@@ -44,11 +44,16 @@ input[type="submit"]{
 
 label{
   display: inline-block;
-  width: 35%;
+  width: 40%;
   height: 25px;
+}
+
+select{
+  float: right;
+  width: 58%;
 }
 
 input{
   float: right;
-  width: 60%;
+  width: 55%;
 }
