@@ -218,6 +218,7 @@ function searchUser(form){
     showErrors(errorMessages);
   }else {
     localStorage.setItem("viewedSearchedUserEmail", userDataResult.data.email);
+    form.emailSearched.value = "";
 
     loadUserViewToBrowsePanel(userDataResult.data, userMessagesResult.data);
   }
