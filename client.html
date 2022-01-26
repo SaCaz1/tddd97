@@ -38,11 +38,10 @@
         </div>
       </div>
     </script>
-
     <script type="text/view" id="userHomeView">
       <div class="vertical">
         <div class="horizontal">
-          <div id="userData">
+          <div class="userData">
             <label id="firstNameLabel"></label>
             <label id="familyNameLabel"></label>
             <label id="emailLabel"></label>
@@ -50,23 +49,52 @@
             <label id="cityLabel"></label>
             <label id="countryLabel"></label>
           </div>
-          <div id="newPostBlock">
-            <textarea id="newPostTextArea"></textarea>
+          <div class="newPostBlock">
+            <textarea id="newPostTextAreaHome" class="newPostTextArea"></textarea>
             <button type="button" id="newPostButton" onclick="postButtonClicked();">Post</button>
           </div>
         </div>
-        <div id="userWall" class="vertical"></div>
+        <div id="userWallHome" class="vertical userWall"></div>
+      </div>
+    </script>
+    <script type="text/view" id="userHomeViewBrowse">
+      <div class="vertical">
+        <div class="horizontal">
+          <div class="userData">
+            <label id="firstNameLabelBrowse"></label>
+            <label id="familyNameLabelBrowse"></label>
+            <label id="emailLabelBrowse"></label>
+            <label id="genderLabelBrowse"></label>
+            <label id="cityLabelBrowse"></label>
+            <label id="countryLabelBrowse"></label>
+          </div>
+          <div class="newPostBlock">
+            <textarea id="newPostTextAreaBrowse" class="newPostTextArea"></textarea>
+            <button type="button" id="newPostButton" onclick="postButtonClicked();">Post</button>
+          </div>
+        </div>
+        <div id="userWallBrowse" class="vertical userWall"></div>
       </div>
     </script>
     <script type="text/view" id="profileView">
       <div class="header">
+        <div id="webSiteName">Twidder</div>
         <div class="tab" id="homeTab" onclick="homeTabClicked();">Home</div>
-        <div class="tab" id="browseTab" onclick="tabClicked('browsePanel')">Browse</div>
-        <div class="tab" id="accountTab" onclick="tabClicked('accountPanel')">Account</div>
+        <div class="tab" id="browseTab" onclick="tabClicked('browse')">Browse</div>
+        <div class="tab" id="accountTab" onclick="tabClicked('account')">Account</div>
       </div>
       <div class="panel" id="homePanel">
       </div>
       <div class="panel" id="browsePanel">
+        <div id="emailSearch">
+          <h2>SEARCH A USER HERE</h2>
+          <form id="browseForm" action="" method="" onsubmit="searchUser(this); return false;">
+            <label for="emailSearched">Enter the email address of the user </label><input type="email" name="emailSearched" id="emailSearched" value="" required>
+            <input type="submit" name="browseBtn" value="Search">
+          </form>
+        </div>
+        <div id="userPanel">
+        </div>
       </div>
       <div class="panel" id="accountPanel">
       </div>

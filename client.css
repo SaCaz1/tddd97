@@ -37,7 +37,7 @@ body{
   text-align: center;
 }
 
-input[type="submit"]{
+.welcome input[type="submit"]{
   width: 80px;
 }
 
@@ -47,12 +47,12 @@ input[type="submit"]{
   height: 25px;
 }
 
-select{
+.welcome select{
   float: right;
   width: 55%;
 }
 
-input{
+.welcome input{
   float: right;
   width: 55%;
 }
@@ -78,10 +78,29 @@ input{
   justify-content: space-around;
   color: blue;
   background: white;
+  text-align: center;
+  cursor: default;
 }
 
-#homeTab, #browseTab, #accountTab {
-  display: flex;
+.header #webSiteName{
+  color: red;
+  font-family: fantasy;
+  font-size: x-large;
+  width: 16%;
+}
+
+.header div{
+  position: relative;
+  margin: auto;
+}
+
+.tab {
+  width: 28%;
+  border-left : solid 1px blue
+}
+
+.tab:hover {
+  background-color: lightgrey;
 }
 
 #profileView {
@@ -98,7 +117,7 @@ input{
   flex-direction: column;
 }
 
-#userData{
+.userData{
   margin: 20px auto auto 20px;
   color: blue;
   background-color: white;
@@ -110,11 +129,11 @@ input{
   row-gap: 10px;
 }
 
-#userData > label {
+.userData label {
   display: flex;
 }
 
-#newPostBlock {
+.newPostBlock {
   display: flex;
   flex-direction: column;
   margin: 20px 20px 0px 20px;
@@ -122,13 +141,13 @@ input{
   align-items: center;
 }
 
-#newPostTextArea{
+.newPostTextArea{
   width: 100%;
   height: 100%;
   margin-bottom: 5px;
 }
 
-#userWall{
+.userWall{
   background-color: white;
   width: 50%;
   overflow-wrap: break-word;
@@ -138,34 +157,58 @@ input{
   border: 5px solid black;
 }
 
-#userWall > div {
+.userWall div {
   align-items: center;
 }
 
-#userWall > div > h2 {
+.userWall div > h2 {
   color: blue;
   margin: auto 20px 10px 20px;
 }
 
-#userWall > p, #userWall > h4{
+.userWall p, .userWall h4{
   color: blue;
   margin-left: 20px;
   margin-right: 20px;
 }
 
-#userWall > h4 {
+.userWall h4 {
   margin-bottom: 0;
 }
 
-#userWall > hr{
+.userWall hr{
   border: 1px solid blue;
   border-radius: 5px;
   width: 10%;
 }
 
-#refreshWallButton{
+.refreshWallButton{
   position: relative;
   left: -65px;
   top: -5px;
   width: fit-content;
+}
+
+#emailSearch {
+  background-color: white;
+  margin-top: 20px;
+  height: 100px;
+  width: 100%;
+  text-align: center;
+}
+
+#browseForm {
+  width: 80%;
+  margin: auto;
+  position: relative;
+}
+
+#emailSearched{
+  width: 50%;
+  margin-left: 10px;
+}
+
+#userPanel {
+  width: 100%;
+  height: 500px;
 }

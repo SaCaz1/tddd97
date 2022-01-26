@@ -22,6 +22,7 @@ function showErrors(errorMessages){
   errorMessageBlock = document.getElementById("errorMessage")
   errorMessageBlock.innerHTML = "";
 
+  errorMessages = [...new Set(errorMessages)]; //eliminates duplicates
   errorMessages.forEach(function(message){
     errorMessageBlock.innerHTML += '<p>' + message + "</p>";
   });
@@ -97,8 +98,7 @@ function signIn(username, password){
 // MAIN PAGE FUNCITONS
 
 function homeTabClicked() {
-  setVisiblePanel("homePanel");
-  setSelectedTab("homeTab");
+  tabClicked("home");
 
   let token = localStorage.getItem("token");
   let userDataResult = serverstub.getUserDataByToken(token);
@@ -117,8 +117,13 @@ function homeTabClicked() {
   }else {
     localStorage.setItem("viewedUserEmail", userDataResult.data.email);
 
-    loadUserViewToPanel(userDataResult.data, userMessagesResult.data, "homePanel");
+    loadUserViewToHomePanel(userDataResult.data, userMessagesResult.data, "homePanel");
   }
+}
+
+function tabClicked(name){
+  setVisiblePanel(name + "Panel");
+  setSelectedTab(name + "Tab");
 }
 
 function setVisiblePanel(name) {
@@ -137,8 +142,8 @@ function setSelectedTab(name) {
   document.getElementById(name).style.color = "maroon";
 }
 
-function loadUserViewToPanel(userData, userMessages, panel) {
-  document.getElementById(panel).innerHTML = document.getElementById("userHomeView").innerHTML;
+function loadUserViewToHomePanel(userData, userMessages) {
+  document.getElementById("homePanel").innerHTML = document.getElementById("userHomeView").innerHTML;
 
   document.getElementById("firstNameLabel").innerHTML = "Name: " + userData.firstname;
   document.getElementById("familyNameLabel").innerHTML = "Family Name: " + userData.familyname;
@@ -147,12 +152,13 @@ function loadUserViewToPanel(userData, userMessages, panel) {
   document.getElementById("cityLabel").innerHTML = "City: " + userData.city;
   document.getElementById("countryLabel").innerHTML = "Country: " + userData.country;
 
-  showUserMessageWall(userMessages);
+  showUserMessageWall(userMessages, "userWallHome");
 }
 
-function showUserMessageWall(userMessages) {
-  let userWall = document.getElementById("userWall");
-  userWall.innerHTML = '<button type="button" id="refreshWallButton" onclick="refreshWallButtonClicked();">Refresh</button>' +
+
+function showUserMessageWall(userMessages, panel) {
+  let userWall = document.getElementById(panel);
+  userWall.innerHTML = '<button type="button" class="refreshWallButton" onclick="refreshWallButtonClicked();">Refresh</button>' +
   '<div class="vertical"><h2>Messages wall</h2></div>';
 
   let messagesHTML = "";
@@ -171,9 +177,12 @@ function showUserMessageWall(userMessages) {
 }
 
 function postButtonClicked() {
+  let inHomePanel = document.getElementById("homePanel").style.display == "block";
+  let viewedUser = inHomePanel ? "viewedUserEmail" : "viewedSearchedUserEmail";
+  let newPostTextArea = inHomePanel ? "newPostTextAreaHome" : "newPostTextAreaBrowse";
   let token = localStorage.getItem("token");
-  let email = localStorage.getItem("viewedUserEmail");
-  let message = document.getElementById("newPostTextArea").value;
+  let email = localStorage.getItem(viewedUser);
+  let message = document.getElementById(newPostTextArea).value;
 
   if (message.length == 0){
     showErrors(["Empty posts not allowed!"]);
@@ -185,19 +194,61 @@ function postButtonClicked() {
   if (!result.success){
     showErrors([result.message]);
   }else{
-    document.getElementById("newPostTextArea").value = "";
+    document.getElementById(newPostTextArea).value = "";
     refreshWallButtonClicked();
   }
 }
 
-// this one should be more generic to work in browse view
+// Browse Panel functions
+function searchUser(form){
+  let email = form.emailSearched.value;
+  let token = localStorage.getItem("token");
+  let userDataResult = serverstub.getUserDataByEmail(token, email);
+  let userMessagesResult = serverstub.getUserMessagesByEmail(token, email);
+
+  let errorMessages = [];
+  if (!userDataResult.success){
+    errorMessages.push(userDataResult.message);
+  }
+  if (!userMessagesResult.success){
+    errorMessages.push(userDataResult.message);
+  }
+
+  if (errorMessages.length > 0) {
+    showErrors(errorMessages);
+  }else {
+    localStorage.setItem("viewedSearchedUserEmail", userDataResult.data.email);
+
+    loadUserViewToBrowsePanel(userDataResult.data, userMessagesResult.data);
+  }
+}
+
+function loadUserViewToBrowsePanel(userData, userMessages) {
+  document.getElementById("userPanel").innerHTML = document.getElementById("userHomeViewBrowse").innerHTML;
+
+  document.getElementById("firstNameLabelBrowse").innerHTML = "Name: " + userData.firstname;
+  document.getElementById("familyNameLabelBrowse").innerHTML = "Family Name: " + userData.familyname;
+  document.getElementById("emailLabelBrowse").innerHTML = "Email: " + userData.email;
+  document.getElementById("genderLabelBrowse").innerHTML = "Gender: " + userData.gender;
+  document.getElementById("cityLabelBrowse").innerHTML = "City: " + userData.city;
+  document.getElementById("countryLabelBrowse").innerHTML = "Country: " + userData.country;
+
+  showUserMessageWall(userMessages, "userWallBrowse");
+}
+
 function refreshWallButtonClicked() {
   let token = localStorage.getItem("token");
+  let inHomePanel = document.getElementById("homePanel").style.display == "block";
+  let panel = inHomePanel ? "userWallHome" : "userWallBrowse";
   let userMessagesResult = serverstub.getUserMessagesByToken(token);
+  if (!inHomePanel){
+    let email = localStorage.getItem("viewedSearchedUserEmail");
+    userMessagesResult = serverstub.getUserMessagesByEmail(token, email);
+  }
 
   if (!userMessagesResult.success){
     showErrors([userMessagesResult.message]);
   }else{
-    showUserMessageWall(userMessagesResult.data);
+    showUserMessageWall(userMessagesResult.data, panel);
   }
 }
