@@ -35,16 +35,13 @@ function showErrors(errorMessages){
 // WELCOME VIEW FUNCTONS
 
 function validateFormAndShowErrors(form) {
-  let password = form.password;
+  let password = form.newPassword;
   let repeat = form.repeatPSW;
 
   if (password.value != repeat.value) {
-    repeat.setCustomValidity("Repeating password does not match!");
-    repeat.reportValidity();
+    showErrors(["Repeating password does not match!"]);
     return false;
   }
-
-  password.setCustomValidity("");
   return true;
 };
 
@@ -252,4 +249,43 @@ function refreshWallButtonClicked() {
   }else{
     showUserMessageWall(userMessagesResult.data, panel);
   }
+}
+
+function submitChangePasswordForm(form) {
+  document.getElementById("messagePasswordChange").innerHTML = "";
+  let oldPassword = form.oldPassword.value;
+  let newPassword = form.newPassword.value;
+  let repeatPSW = form.repeatPSW.value;
+
+  let token = localStorage.getItem("token");
+
+  if (!validateFormAndShowErrors(form)) {
+    return;
+  }
+  let passwordChangeResult = serverstub.changePassword(token, oldPassword, newPassword);
+  if (!passwordChangeResult.success){
+    showErrors([passwordChangeResult.message]);
+  } else if (!validateFormAndShowErrors(form)) {
+    return;
+  } else {
+    form.oldPassword.value = "";
+    form.newPassword.value = "";
+    form.repeatPSW.value = "";
+    document.getElementById("messagePasswordChange").innerHTML = passwordChangeResult.message;
+
+    setTimeout(function(){
+      document.getElementById("messagePasswordChange").innerHTML = "";
+    }, 5000);
+  };
+}
+
+function submitSignOut() {
+  let token = localStorage.getItem("token");
+  let signOutResult = serverstub.signOut(token);
+  if (!signOutResult.success){
+    showErrors([signOutResult.message]);
+  } else {
+    localStorage.removeItem("token");
+    loadPage();
+  };
 }

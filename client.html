@@ -30,7 +30,7 @@
               <label for="city">City </label><input type="text" name="city" value="" required>
               <label for="country">Country </label><input type="text" name="country" value="" required>
               <label for="email">Email </label><input type="email" name="email" value="" required>
-              <label for="password">Password </label><input type="password" name="password" value="" minlength="2" required>
+              <label for="newPassword">Password </label><input type="password" name="newPassword" value="" minlength="2" required>
               <label for="repeatPSW">Repeat PSW </label><input type="password" name="repeatPSW" value="" required>
               <input type="submit" name="signupBtn" value="Sign Up">
             </form>
@@ -85,6 +85,7 @@
       </div>
       <div class="panel" id="homePanel">
       </div>
+
       <div class="panel" id="browsePanel">
         <div id="emailSearch">
           <h2>SEARCH A USER HERE</h2>
@@ -96,14 +97,25 @@
         <div id="userPanel">
         </div>
       </div>
+
       <div class="panel" id="accountPanel">
+        <div id="passwordChange">
+          <h3>CHANGE YOUR PASSWORD HERE</h3>
+          <form id="passwordChangeForm" action="" method="" onsubmit="submitChangePasswordForm(this); return false;">
+            <label for="oldPassword">Old password </label><input type="password" name="oldPassword" value="" minlength="2" required>
+            <label for="newPassword">New password </label><input type="password" name="newPassword" value="" minlength="2" required>
+            <label for="repeatPSW">Repeat password </label><input type="password" name="repeatPSW" value="" required>
+            <input type="submit" name="changePasswordBtn" value="Change password">
+          </form>
+          <div id="messagePasswordChange"></div>
+        </div>
+        <button id="signOutBtn" onclick="submitSignOut();">SIGN OUT</button>
       </div>
     </script>
   </head>
   <body>
   <div id="errorMessage" class="horizontal"></div>
   <div class="pageContent" id="pageContent">
-
   </div>
   <div class="notificationArea" id="notificationArea">
 
