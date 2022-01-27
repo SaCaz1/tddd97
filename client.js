@@ -52,7 +52,7 @@ function submitSignUpForm(form) {
 
   signUpDto = {
     "email": form.email.value,
-    "password": form.password.value,
+    "password": form.newPassword.value,
     "firstname": form.firstName.value,
     "familyname": form.familyName.value,
     "gender": form.gender.value,
