@@ -51,7 +51,7 @@ function submitSignUpForm(form) {
   }
 
   signUpDto = {
-    "email": form.email.value,
+    "email": form.emailSignup.value,
     "password": form.newPassword.value,
     "firstname": form.firstName.value,
     "familyname": form.familyName.value,
@@ -74,7 +74,7 @@ function submitSignUpForm(form) {
 };
 
 function submitSignInForm(form) {
-  let username = form.email.value;
+  let username = form.emailLogin.value;
   let password = form.password.value;
 
   signIn(username, password);
