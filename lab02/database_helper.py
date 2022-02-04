@@ -1,7 +1,15 @@
+import sqlalchemy
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from flask import g
+
+from enum import Enum
+class DatabaseErrorCode(Enum):
+    Success = 0
+    IntegrityError = 1
+    ObjectNotFound = 2
+    GeneralError = 3
 
 Base = declarative_base()
 
@@ -22,16 +30,17 @@ class LoggedInUser(Base):
 
 class Post(Base):
     __tablename__ = "post"
+    id = Column('id', Integer, primary_key=True)
     owner = Column('owner', String, ForeignKey("user.email"))
     author = Column('author', String, ForeignKey("user.email"))
     message = Column('message', String)
 
 DATABASE_URI = 'database.db'
 
+sessionG = None
 
 def get_session():
     session = getattr(g, 'session', None)
-
     if session is None:
         engine = create_engine(f"sqlite:///{DATABASE_URI}")
 
@@ -45,15 +54,108 @@ def close_session():
     session = g.session
     if session is not None:
         session.close()
+        g.session = None
 
-results = get_session().query(
-    User.first_name
-)
+def create_user(information):
+    user = User()
+    user.email = information["email"]
+    user.password = information["password"]
+    user.first_name = information["first_name"]
+    user.family_name = information["family_name"]
+    user.gender = information["gender"]
+    user.city = information["city"]
+    user.country = information["country"]
 
-if results.first() is not None:
-    for result in results:
-        print(user.first_name)
-else:
-    print("no users")
+    try:
+        session = get_session()
+        session.add(user)
+        session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        return DatabaseErrorCode.IntegrityError
+    except Exception:
+        return DatabaseErrorCode.GeneralError
 
-close_session()
+    return DatabaseErrorCode.Success
+
+
+def read_user(email):
+    session = get_session()
+
+    user = session.query(User).filter(User.email == email).one_or_none()
+
+    return user
+
+
+def create_logged_in_user(username, token):
+    logged_in_user = LoggedInUser()
+    logged_in_user.username = username
+    logged_in_user.token = token
+
+    try:
+        session = get_session()
+        session.add(logged_in_user)
+        session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        return DatabaseErrorCode.IntegrityError
+    except Exception:
+        return DatabaseErrorCode.GeneralError
+
+    return DatabaseErrorCode.Success
+
+def read_logged_in_user(email):
+    session = get_session()
+    result = session.query(LoggedInUser).filter(LoggedInUser.username == email).one_or_none()
+    return result
+
+def delete_logged_in_user(email):
+    result = get_session().query(LoggedInUser).filter(LoggedInUser.username == email)
+    if result.first() is not None:
+        result.delete()
+    else:
+        return DatabaseErrorCode.ObjectNotFound
+
+    return DatabaseErrorCode.Success
+
+def read_user_by_token(token):
+    session = get_session()
+
+    logged_in_user = session.query(LoggedInUser).filter(User.token == token).one_or_none()
+
+    if logged_in_user is None:
+        return None
+
+    return read_user(logged_in_user.username)
+
+def read_message(owner_email):
+    session = get_session()
+    result = session.query(Post).filter(Post.owner == owner_email)
+    return result.all()
+
+def create_message(information):
+    post = Post()
+    post.owner = information["owner"]
+    post.author = information["author"]
+    post.message = information["message"]
+
+    try:
+        session = get_session()
+        session.add(post)
+        session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        return DatabaseErrorCode.IntegrityError
+    except Exception:
+        return DatabaseErrorCode.GeneralError
+
+    return DatabaseErrorCode.Success
+
+def update_user_password(username, new_password):
+    session = get_session()
+    result = session.query(User).filter(User.email == username)
+
+    if result.first() is not None:
+        result.update(values={"password" : new_password})
+        session.commit()
+    else:
+        return DatabaseErrorCode.ObjectNotFound
+
+    return DatabaseErrorCode.Success

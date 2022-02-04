@@ -1,3 +1,9 @@
+drop table if exists user;
+drop table if exists logged_in_user;
+drop table if exists post;
+
+
+
 create table if not exists user(
   email varchar(255),
   password varchar(255),
@@ -17,11 +23,10 @@ create table if not exists logged_in_user(
 );
 
 create table if not exists post(
-  id INTEGER AUTOINCREMENT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   owner varchar(255),
   author varchar(255),
   message varchar(1000),
-  PRIMARY KEY (id),
   FOREIGN KEY (owner) REFERENCES user(email),
   FOREIGN KEY (author) REFERENCES user(email)
 );
