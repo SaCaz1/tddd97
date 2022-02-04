@@ -1,20 +1,9 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from flask import g
 
 Base = declarative_base()
-
-# user = Table(
-# 'user'
-# Base.metadata,
-# Column('email', String),
-# Column('password', String),
-# Column('first_name', String),
-# Column('family_name', String),
-# Column('gender', String),
-# Column('city', String),
-# Column('country', String),
-# )
 
 class User(Base):
     __tablename__ = "user"
@@ -31,17 +20,33 @@ class LoggedInUser(Base):
     username = Column('username', String, ForeignKey("user.email"))
     token = Column('token', String, primary_key=True)
 
+class Post(Base):
+    __tablename__ = "post"
+    owner = Column('owner', String, ForeignKey("user.email"))
+    author = Column('author', String, ForeignKey("user.email"))
+    message = Column('message', String)
 
 DATABASE_URI = 'database.db'
 
 
-engine = create_engine(f"sqlite:///{DATABASE_URI}")
+def get_session():
+    session = getattr(g, 'session', None)
 
-Session = sessionmaker()
-Session.configure(bind=engine)
-session = Session()
+    if session is None:
+        engine = create_engine(f"sqlite:///{DATABASE_URI}")
 
-results = session.query(
+        Session = sessionmaker()
+        Session.configure(bind=engine)
+        session = g.session = Session()
+
+    return session
+
+def close_session():
+    session = g.session
+    if session is not None:
+        session.close()
+
+results = get_session().query(
     User.first_name
 )
 
@@ -51,4 +56,4 @@ if results.first() is not None:
 else:
     print("no users")
 
-session.close()
+close_session()

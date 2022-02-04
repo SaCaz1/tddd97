@@ -15,3 +15,13 @@ create table if not exists logged_in_user(
   primary key (token),
   FOREIGN KEY(username) REFERENCES user(email)
 );
+
+create table if not exists post(
+  id INTEGER AUTOINCREMENT,
+  owner varchar(255),
+  author varchar(255),
+  message varchar(1000),
+  PRIMARY KEY (id),
+  FOREIGN KEY (owner) REFERENCES user(email),
+  FOREIGN KEY (author) REFERENCES user(email)
+);
