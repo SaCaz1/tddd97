@@ -13,7 +13,7 @@ def after_request(exception):
 
 @app.route('/sign_in', methods=['POST'])
 def sign_in():
-    json = request.json()
+    json = request.get_json()
 
     if "username" not in json or "password" not in json:
         return "{}", 400 #Bad Request
@@ -33,27 +33,27 @@ def sign_in():
     if result != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
 
-    response_body = "{token: %s}" %% token
+    response_body = "{token: %s}" % token
 
     return response_body, 200 #OK
 
 
 @app.route('/sign_up', methods=['POST'])
 def sign_up():
-    json = request.json()
+    json = request.get_json()
 
     for key in ["email", "password", "first_name", "family_name", "gender", "city", "country"]:
         if key not in json:
             return "{}", 400 #Bad Request
 
-    if database_helper.read_user(json["email"]) not is None:
+    if database_helper.read_user(json["email"]) is not None:
         return "{}", 409 #Conflict
 
     user_info = {
     "email": json["email"],
     "password": json["password"],
     "first_name": json["first_name"],
-    "family_name": json["family_name]",
+    "family_name": json["family_name"],
     "gender": json["gender"],
     "city": json["city"],
     "country": json["country"]
@@ -76,7 +76,7 @@ def sign_out():
 
     user = database_helper.get_user_by_token(headers["Authorization"])
 
-    if user         return "{}", 400 #Bad Requestis None:
+    if user is None:
         return "{}", 404 #Not Found
 
     if database_helper.delete_logged_in_user(user.email) != DatabaseErrorCode.Success:
@@ -89,7 +89,7 @@ def sign_out():
 
     return "{}", 200 #OK
 
-@app.route('/change_password', methods=["PUT"]')
+@app.route('/change_password', methods=["PUT"])
 def change_password():
     json = request.get_json()
     headers = request.headers
@@ -117,7 +117,7 @@ def get_user_data_by_token():
     if user is None:
         return "{}", 403 #Forbidden
 
-    user_info {
+    user_info = {
     "email": user.email,
     "first_name": user.first_name,
     "family_name": user.family_name,
@@ -144,7 +144,7 @@ def get_user_data_by_email(email):
         return "{}", 404 #Not Found
 
     else:
-        user_info {
+        user_info = {
         "email": user.email,
         "first_name": user.first_name,
         "family_name": user.family_name,
@@ -192,7 +192,7 @@ def post_message():
         if result is DatabaseErrorCode.Success:
             return "{}", 201    #Created
 
-        else if result is DatabaseErrorCode.IntegrityError:
+        elif result is DatabaseErrorCode.IntegrityError:
             return "{}", 400   #Bad request, over caracter limit
 
     return "{}", 500  #Internal server error
