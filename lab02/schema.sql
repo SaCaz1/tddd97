@@ -2,7 +2,7 @@ drop table if exists user;
 drop table if exists logged_in_user;
 drop table if exists post;
 
-
+PRAGMA foreign_keys = ON;
 
 create table if not exists user(
   email varchar(255),
