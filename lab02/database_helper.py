@@ -1,10 +1,11 @@
 import sqlalchemy
-from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
+from sqlalchemy import Column, Integer, String, ForeignKey, create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from flask import g
-
 from enum import Enum
+
+
 class DatabaseErrorCode(Enum):
     Success = 0
     IntegrityError = 1
@@ -35,14 +36,15 @@ class Post(Base):
     author = Column('author', String, ForeignKey("user.email"))
     message = Column('message', String)
 
+
 DATABASE_URI = 'database.db'
 
-sessionG = None
 
 def get_session():
     session = getattr(g, 'session', None)
     if session is None:
         engine = create_engine(f"sqlite:///{DATABASE_URI}")
+        event.listen(engine, 'connect', lambda conn, _ : conn.execute('PRAGMA foreign_keys = ON;'))
 
         Session = sessionmaker()
         Session.configure(bind=engine)
