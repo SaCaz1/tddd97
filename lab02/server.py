@@ -16,10 +16,10 @@ def sign_in():
     json = request.get_json()
 
     if "username" not in json or "password" not in json:
-        return "{}", 400 #Bad Request
+        return "{}", 400 #Bad Request #tested
 
     if database_helper.read_logged_in_user(json['username']) is not None:
-        return "{}", 409 #Conflict
+        return "{}", 409 #Conflict #tested
 
     user = database_helper.read_user(json["username"])
 
@@ -44,10 +44,10 @@ def sign_up():
 
     for key in ["email", "password", "first_name", "family_name", "gender", "city", "country"]:
         if key not in json:
-            return "{}", 400 #Bad Request
+            return "{}", 400 #Bad Request #tested
 
     if database_helper.read_user(json["email"]) is not None:
-        return "{}", 409 #Conflict
+        return "{}", 409 #Conflict #tested
 
     user_info = {
     "email": json["email"],
@@ -65,29 +65,23 @@ def sign_up():
         return "{}", 500 #Internal Server Error
 
 
-    return jsonify(user_info), 201 #Created successfully
+    return jsonify(user_info), 201 #Created successfully #tested
 
 @app.route('/sign_out', methods=['DELETE'])
 def sign_out():
     headers = request.headers
-
     if "Authorization" not in headers:
-        return "{}", 400 #Bad Request
+        return "{}", 400 #Bad Request #tested
 
-    user = database_helper.get_user_by_token(headers["Authorization"])
+    user = database_helper.read_user_by_token(headers["Authorization"])
 
     if user is None:
-        return "{}", 404 #Not Found
+        return "{}", 404 #Not Found #tested
 
     if database_helper.delete_logged_in_user(user.email) != DatabaseErrorCode.Success:
-        return "{}", 500 #Internal Server Error
+        return "{}", 500 #Internal Server Error #tested
 
-
-    if database_helper.delete_user(user.email) != DatabaseErrorCode.Success:
-        return "{}", 500 #Internal Server Error
-
-
-    return "{}", 200 #OK
+    return "{}", 200 #OK #tested
 
 @app.route('/change_password', methods=["PUT"])
 def change_password():
@@ -188,7 +182,7 @@ def get_user_messages_by_token():
 @app.route('/message/get/<email>', methods=['GET'])
 def get_user_messages_by_email(email):
     headers = request.headers
-    
+
     if "Authorization" not in headers:
         return "{}", 400 #Bad Request
 

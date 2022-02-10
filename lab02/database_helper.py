@@ -51,7 +51,7 @@ def get_session():
     return session
 
 def close_session():
-    session = g.session
+    session = getattr(g, 'session', None)
     if session is not None:
         session.close()
         g.session = None
@@ -108,9 +108,11 @@ def read_logged_in_user(email):
     return result
 
 def delete_logged_in_user(email):
-    result = get_session().query(LoggedInUser).filter(LoggedInUser.username == email)
+    session = get_session()
+    result = session.query(LoggedInUser).filter(LoggedInUser.username == email)
     if result.first() is not None:
-        result.delete()
+        session.delete(result.first())
+        session.commit()
     else:
         return DatabaseErrorCode.ObjectNotFound
 
@@ -119,7 +121,7 @@ def delete_logged_in_user(email):
 def read_user_by_token(token):
     session = get_session()
 
-    logged_in_user = session.query(LoggedInUser).filter(User.token == token).one_or_none()
+    logged_in_user = session.query(LoggedInUser).filter(LoggedInUser.token == token).one_or_none()
 
     if logged_in_user is None:
         return None
