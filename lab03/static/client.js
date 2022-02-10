@@ -60,17 +60,27 @@ function submitSignUpForm(form) {
     "country": form.country.value
   };
 
-  let result = serverstub.signUp(signUpDto);
+  let request = new XMLHttpRequest();
+  request.open('POST', '/sign_up', true);
+  request.onreadystatechange = function() {
+    if (request.readyState !== 4) {
+      return;
+    }
 
-  if (result.success) {
-    let username = signUpDto.email;
-    let password = signUpDto.password;
+    if (request.status === 400) {
+      showErrors(["Invalid input."]);
+    } else if (request.status === 409) {
+      showErrors(["User already exists."]);
+    } else if (request.status === 500) {
+      showErrors(["Something went wrong."]);
+    } else if (request.status === 201) {
+      let username = signUpDto.email;
+      let password = signUpDto.password;
 
-    signIn(username, password);
+      signIn(username, password);
+    }
   }
-  else {
-    showErrors([result.message]);
-  }
+  request.send(stringify(signUpDto));
 };
 
 function submitSignInForm(form) {
@@ -81,15 +91,32 @@ function submitSignInForm(form) {
 };
 
 function signIn(username, password){
-  let result = serverstub.signIn(username, password);
+  let signInDto = {"username" : username, "password" : password}
 
-  if (result.success) {
-    localStorage.setItem("token", result.data);
+  let request = new XMLHttpRequest();
+  request.open('POST', '/sign_in', true);
+  request.onreadystatechange = function() {
+    if (request.readyState !== 4) {
+      return;
+    }
 
-    loadPage();
-  }else {
-    showErrors([result.message]);
+    if (request.status === 400) {
+      showErrors(["The username or password are missing."]);
+    } else if (request.status === 409) {
+      showErrors(["User already logged in."]);
+    } else if (request.status ===  403) {
+      show_errors(["Wrong username or password."]);
+    } else if (request.status === 500) {
+      show_errors(["Something went wrong."]);
+    } else if (request.status === 200) {
+      result = JSON.parse(request.responseText);
+      localStorage.setItem("token", result.token);
+
+      loadPage();
+    }
   }
+
+  request.send(jsonify(signInDto))
 }
 
 // MAIN PAGE FUNCITONS
@@ -98,24 +125,48 @@ function homeTabClicked() {
   tabClicked("home");
 
   let token = localStorage.getItem("token");
-  let userDataResult = serverstub.getUserDataByToken(token);
-  let userMessagesResult = serverstub.getUserMessagesByToken(token);
 
-  let errorMessages = [];
-  if (!userDataResult.success){
-    errorMessages.push(userDataResult.message);
-  }
-  if (!userMessagesResult.success){
-    errorMessages.push(userDataResult.message);
-  }
+  // First send user data request
+  let userDataRequest = new XMLHttpRequest();
+  userDataRequest.open('GET', '/get_user_data_by_token', true);
+  userdataRequest.headers.set('Authorization', token);
+  userdataRequest.onreadystatechange = function() {
+    if (userdataRequest.readyState !== 4) {
+      return;
+    }
 
-  if (errorMessages.length > 0) {
-    showErrors(errorMessages);
-  }else {
-    localStorage.setItem("viewedUserEmail", userDataResult.data.email);
+    if (userdataRequest.status === 400) {
+      show_errors(["Something went wrong. Please check if you are logged in."]);
+    } else if (userdataRequest.status === 401) {
+      show_errors(["Your session expired. Please log in again."]);
+    } else if (userdataRequest.status === 200) {
+      let userData = JSON.parse(userdataRequest.responseText);
 
-    loadUserViewToHomePanel(userDataResult.data, userMessagesResult.data, "homePanel");
+      // When user data request is successful, send user wall messages request
+      let userMessagesRequest = new XMLHttpRequest();
+      userMessagesRequest.open('GET', '/message/get', true);
+      userMessagesRequest.headers.set('Authorization', token);
+      userMessagesRequest.onreadystatechange = function() {
+        if (userMessagesRequest.readyState !== 4) {
+          return;
+        }
+
+        if (userMessagesRequest.status === 400) {
+          show_errors(["Something went wrong. Please check if you are logged in."]);
+        } else if (userMessagesRequest.status === 401) {
+          show_errors(["Your session expired. Please log in again."]);
+        } else if (userMessagesRequest.status === 200) {
+          let userMessages = JSON.parse(userMessagesRequest.responseText);
+
+          // When all requests are successful, show home panel
+          localStorage.setItem("viewedUserEmail", userData.email);
+          loadUserViewToHomePanel(userData, userMessages, "homePanel");
+        }
+      }
+      userMessagesRequest.send();
+    }
   }
+  userDataRequest.send();
 }
 
 function tabClicked(name){
@@ -176,49 +227,105 @@ function showUserMessageWall(userMessages, panel) {
 function postButtonClicked() {
   let inHomePanel = document.getElementById("homePanel").style.display == "block";
   let viewedUser = inHomePanel ? "viewedUserEmail" : "viewedSearchedUserEmail";
+
+  let owner = localStorage.getItem(viewedUser);
+  let author = localStorage.getItem("viewedUserEmail");
+
   let newPostTextArea = inHomePanel ? "newPostTextAreaHome" : "newPostTextAreaBrowse";
-  let token = localStorage.getItem("token");
-  let email = localStorage.getItem(viewedUser);
   let message = document.getElementById(newPostTextArea).value;
+
+  let postMessageDto = {
+    "author" : author,
+    "owner" : owner,
+    "message" : message
+  };
+
+  let token = localStorage.getItem("token");
 
   if (message.length == 0){
     showErrors(["Empty posts not allowed!"]);
     return;
   }
 
-  let result = serverstub.postMessage(token, message, email);
-
-  if (!result.success){
-    showErrors([result.message]);
-  }else{
-    document.getElementById(newPostTextArea).value = "";
-    refreshWallButtonClicked();
+  if (message.length > 1000) {
+    showErrors(["Posts logner then 1000 characters not allowed!"]);
+    return;
   }
+
+  let request = new XMLHttpRequest();
+  request.open('POST', '/message/post' true);
+  request.setRequestHeader('Authorization', token);
+  request.onreadystatechange = function(){
+    if (request.readyState !== 4) {
+      return;
+    }
+
+    if (request.status === 400) {
+      showErrors(["Something went wrong. Check if you are logged in."]);
+    } else if (request.status === 401) {
+      showErrors(["Your session expired. Please log in again"]);
+    } else if (request.status === 500) {
+      show_errors(["Something went wrong."]);
+    } else if (request.status === 201) {
+      document.getElementById(newPostTextArea).value = "";
+      refreshWallButtonClicked();
+    }
+  }
+  request.send(stringify(postMessageDto));
 }
 
 // Browse Panel functions
 function searchUser(form){
   let email = form.emailSearched.value;
   let token = localStorage.getItem("token");
-  let userDataResult = serverstub.getUserDataByEmail(token, email);
-  let userMessagesResult = serverstub.getUserMessagesByEmail(token, email);
 
-  let errorMessages = [];
-  if (!userDataResult.success){
-    errorMessages.push(userDataResult.message);
-  }
-  if (!userMessagesResult.success){
-    errorMessages.push(userDataResult.message);
-  }
+  // First send user data request
+  let userDataRequest = new XMLHttpRequest();
+  userDataRequest.open('GET', '/get_user_data/' + email, true);
+  userdataRequest.headers.set('Authorization', token);
+  userdataRequest.onreadystatechange = function() {
+    if (userdataRequest.readyState !== 4) {
+      return;
+    }
 
-  if (errorMessages.length > 0) {
-    showErrors(errorMessages);
-  }else {
-    localStorage.setItem("viewedSearchedUserEmail", userDataResult.data.email);
-    form.emailSearched.value = "";
+    if (userdataRequest.status === 400) {
+      show_errors(["Something went wrong. Please check if you are logged in."]);
+    } else if (userdataRequest.status === 401) {
+      show_errors(["Your session expired. Please log in again."]);
+    } else if (userdataRequest.status === 404) {
+      show_errors(["User not found."]);
+    } else if (userdataRequest.status === 200) {
+      let userData = JSON.parse(userdataRequest.responseText);
 
-    loadUserViewToBrowsePanel(userDataResult.data, userMessagesResult.data);
+      // When user data request is successful, send user wall messages request
+      let userMessagesRequest = new XMLHttpRequest();
+      userMessagesRequest.open('GET', '/message/get' + email, true);
+      userMessagesRequest.headers.set('Authorization', token);
+      userMessagesRequest.onreadystatechange = function() {
+        if (userMessagesRequest.readyState !== 4) {
+          return;
+        }
+
+        if (userMessagesRequest.status === 400) {
+          show_errors(["Something went wrong. Please check if you are logged in."]);
+        } else if (userMessagesRequest.status === 401) {
+          show_errors(["Your session expired. Please log in again."]);
+        } else if (userMessagesRequest.status === 404) {
+          show_errors(["User not found."]);
+        } else if (userMessagesRequest.status === 200) {
+          let userMessages = JSON.parse(userMessagesRequest.responseText);
+
+          // When all requests are successful, show user panel
+          localStorage.setItem("viewedSearchedUserEmail", userDataResult.data.email);
+          form.emailSearched.value = "";
+
+          loadUserViewToBrowsePanel(userData, userMessages);
+        }
+      }
+      userMessagesRequest.send();
+    }
   }
+  userDataRequest.send();
 }
 
 function loadUserViewToBrowsePanel(userData, userMessages) {
@@ -238,6 +345,20 @@ function refreshWallButtonClicked() {
   let token = localStorage.getItem("token");
   let inHomePanel = document.getElementById("homePanel").style.display == "block";
   let panel = inHomePanel ? "userWallHome" : "userWallBrowse";
+
+  //let request = new XMLHttpRequest();
+  //request.open("GET", "/message/get", true);
+  //request.setRequestHeader("Authorization", token);
+
+//  request.onreadystatechange = function(){
+  //  if (this.readyState == 4){
+  //    if (this.status == 200){
+  //    }
+  //  }
+  //  else{
+  //    return;
+  //  }
+
   let userMessagesResult = serverstub.getUserMessagesByToken(token);
   if (!inHomePanel){
     let email = localStorage.getItem("viewedSearchedUserEmail");
@@ -253,39 +374,73 @@ function refreshWallButtonClicked() {
 
 function submitChangePasswordForm(form) {
   document.getElementById("messagePasswordChange").innerHTML = "";
-  let oldPassword = form.oldPassword.value;
-  let newPassword = form.newPassword.value;
-  let repeatPSW = form.repeatPSW.value;
 
-  let token = localStorage.getItem("token");
+  let changePasswordDto = {
+    "old_password": form.oldPassword.value,
+    "new_password": form.newPassword.value
+  }
 
   if (!validateFormAndShowErrors(form)) {
     return;
   }
-  let passwordChangeResult = serverstub.changePassword(token, oldPassword, newPassword);
-  if (!passwordChangeResult.success){
-    showErrors([passwordChangeResult.message]);
-  } else if (!validateFormAndShowErrors(form)) {
-    return;
-  } else {
-    form.oldPassword.value = "";
-    form.newPassword.value = "";
-    form.repeatPSW.value = "";
-    document.getElementById("messagePasswordChange").innerHTML = passwordChangeResult.message;
 
-    setTimeout(function(){
-      document.getElementById("messagePasswordChange").innerHTML = "";
-    }, 5000);
-  };
+  let token = localStorage.getItem("token");
+
+  let request = new XMLHttpRequest();
+  request.open("PUT", "/change_password", true);
+  request.setRequestHeader("Authorization", token);
+
+  request.onreadystatechange = function(){
+    if (this.readyState == 4){
+      if (this.status == 200){
+        form.oldPassword.value = "";
+        form.newPassword.value = "";
+        form.repeatPSW.value = "";
+        document.getElementById("messagePasswordChange").innerHTML = "Password changed.";
+        setTimeout(function(){
+          document.getElementById("messagePasswordChange").innerHTML = "";
+        }, 5000);
+      }
+
+      if (this.status == 401){
+        showErrors(["You are not logged in."]);
+      }
+      if (this.status == 403){
+        showErrors(["Wrong password."]);
+      }
+      else{
+        showErrors(["Something went wrong."]);
+      }
+    }
+    else{
+      return;
+    }
+  }
+
+  request.send(JSON.stringify(changePasswordDto))
 }
 
 function submitSignOut() {
-  let token = localStorage.getItem("token");
-  let signOutResult = serverstub.signOut(token);
-  if (!signOutResult.success){
-    showErrors([signOutResult.message]);
-  } else {
-    localStorage.removeItem("token");
-    loadPage();
-  };
+  //let token = localStorage.getItem("token");
+  let request = new XMLHttpRequest();
+  request.open("DELETE", "/sign_out", true);
+  request.onreadystatechange = function(){
+    if (this.readyState == 4){
+      if (this.status == 200){
+        localStorage.removeItem("token");
+        loadPage();
+      }
+      if (this.status == 401){
+        showErrors(["You are not signed in."]);
+      }
+      else{
+        showErrors(["Something went wrong."]);
+      }
+    }
+
+    else{
+      return;
+    }
+  }
+  request.send();
 }

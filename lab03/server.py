@@ -7,6 +7,10 @@ app = Flask(__name__)
 
 app.debug = True
 
+@app.route("/", methods = ["GET"])
+def root():
+    return app.send_static_file("static/client.html")
+
 @app.teardown_request
 def after_request(exception):
     database_helper.close_session();
@@ -23,8 +27,11 @@ def sign_in():
 
     user = database_helper.read_user(json["username"])
 
-    if user is None or user.password != json["password"]:
-        return "{}", 403 #Forbidden
+    if user.password != json["old_password"]:
+        return "{}", 403 # Forbidden, wrong password
+
+    if user is None:
+        return "{}", 401 # Unauthorized, user not connected
 
     token = utils.generate_token()
 
@@ -76,7 +83,7 @@ def sign_out():
     user = database_helper.read_user_by_token(headers["Authorization"])
 
     if user is None:
-        return "{}", 404 #Not Found
+        return "{}", 401 # Unauthorized
 
     if database_helper.delete_logged_in_user(user.email) != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
@@ -93,8 +100,11 @@ def change_password():
 
     user = database_helper.read_user_by_token(headers["Authorization"])
 
-    if user is None or user.password != json["old_password"]:
-        return "{}", 403 # Forbidden
+    if user.password != json["old_password"]:
+        return "{}", 403 # Forbidden, wrong password
+
+    if user is None:
+        return "{}", 401 # Unauthorized, user not connected
 
     if database_helper.update_user_password(user.email, json["new_password"]) != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
@@ -113,7 +123,7 @@ def get_user_data_by_token():
     user = database_helper.read_user_by_token(token)
 
     if user is None:
-        return "{}", 403 #Forbidden
+        return "{}", 401 #Unauthorized, user not connected
 
     user_info = {
         "email": user.email,
@@ -137,7 +147,7 @@ def get_user_data_by_email(email):
     token = headers.get("Authorization")
 
     if database_helper.read_user_by_token(token) is None:
-        return "{}", 403 #Forbidden
+        return "{}", 401 #Unauthorized, user not connected
 
     user = database_helper.read_user(email)
 
@@ -167,7 +177,7 @@ def get_user_messages_by_token():
 
     user = database_helper.read_user_by_token(token)
     if user is None:
-        return "{}", 403 #Forbidden, user not connected
+        return "{}", 401 #Unauthorized, user not connected
 
     result = database_helper.read_message(user.email)
 
@@ -185,7 +195,7 @@ def get_user_messages_by_email(email):
     user = database_helper.read_user_by_token(token)
 
     if user is None:
-        return "{}", 403 #Forbidden, user not connected
+        return "{}", 401 #Unauthorized, user not connected
 
     if database_helper.read_user(email) is None:
         return "{}", 404 #Not Found
@@ -208,6 +218,14 @@ def jsonify_messages(messages_result):
 
 @app.route('/message/post', methods=['POST'])
 def post_message():
+    headers = request.headers
+    if "Authorization" not in headers:
+        return "{}", 400 #Bad Request
+
+    if database_helper.read_user_by_token(headers["Authorization"]) is None:
+        return "{}", 401 # Unauthorized
+
+
     json = request.get_json()
     if "owner" not in json or "message" not in json or "author" not in json:
         return "{}", 400 #Bad Request
