@@ -110,6 +110,10 @@ def change_password():
 @app.route('/get_user_data_by_token', methods=['GET'])
 def get_user_data_by_token():
     headers = request.headers
+
+    if "Authorization" not in headers:
+        return "{}", 400 #Bad Request
+
     token = headers.get("Authorization")
 
     user = database_helper.read_user_by_token(token)
@@ -132,6 +136,10 @@ def get_user_data_by_token():
 @app.route('/get_user_data/<email>', methods=['GET'])
 def get_user_data_by_email(email):
     headers = request.headers
+
+    if "Authorization" not in headers:
+        return "{}", 400 #Bad Request
+
     token = headers.get("Authorization")
 
     if database_helper.read_user_by_token(token) is None:
@@ -159,7 +167,12 @@ def get_user_data_by_email(email):
 @app.route('/message/get', methods=['GET'])
 def get_user_messages_by_token():
     headers = request.headers
+
+    if "Authorization" not in headers:
+        return "{}", 400 #Bad Request
+
     token = headers.get("Authorization")
+
     user = database_helper.read_user_by_token(token)
     if user is None:
         return "{}", 403 #Forbidden, user not connected
@@ -175,6 +188,10 @@ def get_user_messages_by_token():
 @app.route('/message/get/<email>', methods=['GET'])
 def get_user_messages_by_email(email):
     headers = request.headers
+    
+    if "Authorization" not in headers:
+        return "{}", 400 #Bad Request
+
     token = headers.get("Authorization")
     if token != database_helper.read_logged_in_user(email):
         return "{}", 403 #Forbidden, user not connected
