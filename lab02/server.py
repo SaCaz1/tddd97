@@ -51,20 +51,19 @@ def sign_up():
         return "{}", 409 #Conflict
 
     user_info = {
-    "email": json["email"],
-    "password": json["password"],
-    "first_name": json["first_name"],
-    "family_name": json["family_name"],
-    "gender": json["gender"],
-    "city": json["city"],
-    "country": json["country"]
+        "email": json["email"],
+        "password": json["password"],
+        "first_name": json["first_name"],
+        "family_name": json["family_name"],
+        "gender": json["gender"],
+        "city": json["city"],
+        "country": json["country"]
     }
 
     result = database_helper.create_user(user_info)
 
     if result != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
-
 
     return jsonify(user_info), 201 #Created successfully
 
@@ -117,12 +116,12 @@ def get_user_data_by_token():
         return "{}", 403 #Forbidden
 
     user_info = {
-    "email": user.email,
-    "first_name": user.first_name,
-    "family_name": user.family_name,
-    "gender": user.gender,
-    "city": user.city,
-    "country": user.country
+        "email": user.email,
+        "first_name": user.first_name,
+        "family_name": user.family_name,
+        "gender": user.gender,
+        "city": user.city,
+        "country": user.country
     }
 
     return jsonify(user_info), 200 #OK
@@ -140,20 +139,18 @@ def get_user_data_by_email(email):
     if database_helper.read_user_by_token(token) is None:
         return "{}", 403 #Forbidden
 
-
     user = database_helper.read_user(email)
 
     if user is None:
         return "{}", 404 #Not Found
-
     else:
         user_info = {
-        "email": user.email,
-        "first_name": user.first_name,
-        "family_name": user.family_name,
-        "gender": user.gender,
-        "city": user.city,
-        "country": user.country
+            "email": user.email,
+            "first_name": user.first_name,
+            "family_name": user.family_name,
+            "gender": user.gender,
+            "city": user.city,
+            "country": user.country
         }
 
         return jsonify(user_info), 200 #Success
@@ -173,7 +170,6 @@ def get_user_messages_by_token():
         return "{}", 403 #Forbidden, user not connected
 
     result = database_helper.read_message(user.email)
-
 
     return jsonify_messages(result), 200 #OK
 
@@ -202,9 +198,9 @@ def jsonify_messages(messages_result):
     message_info = []
     for message in messages_result:
         message_info.append({
-        "owner": message.owner,
-        "message": message.message,
-        "author": message.author
+            "owner": message.owner,
+            "message": message.message,
+            "author": message.author
         });
 
     return jsonify(message_info)
@@ -225,8 +221,6 @@ def post_message():
         return "{}", 500  #Internal server error
 
     return "{}", 201    #Created
-
-
 
 if __name__ == '__main__':
     app.run()
