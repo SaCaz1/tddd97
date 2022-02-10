@@ -217,8 +217,8 @@ def post_message():
 
     result = database_helper.create_message(json)
 
-    if result is DatabaseErrorCode.IntegrityError:
-        return "{}", 400   #Bad request, over caracter limit or owner/author not valid
+    if result is DatabaseErrorCode.IntegrityError or len(json["message"]) > 1000:
+        return "{}", 400   #Bad request, owner/author not valid or over caracter limits
 
     if result is not DatabaseErrorCode.Success:
         return "{}", 500  #Internal server error
