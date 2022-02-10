@@ -43,8 +43,9 @@ def sign_up():
     json = request.get_json()
 
     for key in ["email", "password", "first_name", "family_name", "gender", "city", "country"]:
-        if key not in json:
+        if key not in json or len(json[key]) > 255:
             return "{}", 400 #Bad Request
+
 
     if database_helper.read_user(json["email"]) is not None:
         return "{}", 409 #Conflict
