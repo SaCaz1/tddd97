@@ -9,7 +9,7 @@ app.debug = True
 
 @app.route("/", methods = ["GET"])
 def root():
-    return app.send_static_file("static/client.html")
+    return app.send_static_file("client.html")
 
 @app.teardown_request
 def after_request(exception):
@@ -27,11 +27,11 @@ def sign_in():
 
     user = database_helper.read_user(json["username"])
 
-    if user.password != json["old_password"]:
-        return "{}", 403 # Forbidden, wrong password
+    if not user:
+        return '{}', 404 # Not Found
 
-    if user is None:
-        return "{}", 401 # Unauthorized, user not connected
+    if user.password != json["password"]:
+        return "{}", 403 # Forbidden, wrong password
 
     token = utils.generate_token()
 
