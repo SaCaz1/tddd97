@@ -207,8 +207,8 @@ function setSelectedTab(name) {
 function loadUserViewToHomePanel(userData, userMessages) {
   document.getElementById("homePanel").innerHTML = document.getElementById("userHomeView").innerHTML;
 
-  document.getElementById("firstNameLabel").innerHTML = "Name: " + userData.firstname;
-  document.getElementById("familyNameLabel").innerHTML = "Family Name: " + userData.familyname;
+  document.getElementById("firstNameLabel").innerHTML = "Name: " + userData.first_name;
+  document.getElementById("familyNameLabel").innerHTML = "Family Name: " + userData.family_name;
   document.getElementById("emailLabel").innerHTML = "Email: " + userData.email;
   document.getElementById("genderLabel").innerHTML = "Gender: " + userData.gender;
   document.getElementById("cityLabel").innerHTML = "City: " + userData.city;
@@ -225,7 +225,7 @@ function showUserMessageWall(userMessages, panel) {
 
   let messagesHTML = "";
   userMessages.forEach(function(message, idx){
-    let author = message.writer;
+    let author = message.author;
     let content = message.content.replaceAll("\n", "<br>");
 
     messagesHTML += "<h4>Author: " + author + "</h4>";
@@ -268,6 +268,7 @@ function postButtonClicked() {
 
   let request = new XMLHttpRequest();
   request.open('POST', '/message/post', true);
+  request.setRequestHeader('Content-Type', 'application/json;encoding=utf-8');
   request.setRequestHeader('Authorization', token);
   request.onreadystatechange = function() {
     if (request.readyState !== 4) {
@@ -299,26 +300,26 @@ function searchUser(form){
   // First send user data request
   let userDataRequest = new XMLHttpRequest();
   userDataRequest.open('GET', '/get_user_data/' + email, true);
-  userdataRequest.headers.set('Authorization', token);
-  userdataRequest.onreadystatechange = function() {
-    if (userdataRequest.readyState !== 4) {
+  userDataRequest.setRequestHeader('Authorization', token);
+  userDataRequest.onreadystatechange = function() {
+    if (userDataRequest.readyState !== 4) {
       return;
     }
 
-    if (userdataRequest.status === 400) {
+    if (userDataRequest.status === 400) {
       showErrors(["Something went wrong. Please check if you are logged in."]);
-    } else if (userdataRequest.status === 401) {
+    } else if (userDataRequest.status === 401) {
       showErrors(["Your session expired. Please log in again."]);
       localStorage.removeItem("token");
-    } else if (userdataRequest.status === 404) {
+    } else if (userDataRequest.status === 404) {
       showErrors(["User not found."]);
-    } else if (userdataRequest.status === 200) {
-      let userData = JSON.parse(userdataRequest.responseText);
+    } else if (userDataRequest.status === 200) {
+      let userData = JSON.parse(userDataRequest.responseText);
 
       // When user data request is successful, send user wall messages request
       let userMessagesRequest = new XMLHttpRequest();
-      userMessagesRequest.open('GET', '/message/get' + email, true);
-      userMessagesRequest.headers.set('Authorization', token);
+      userMessagesRequest.open('GET', '/message/get/' + email, true);
+      userMessagesRequest.setRequestHeader('Authorization', token);
       userMessagesRequest.onreadystatechange = function() {
         if (userMessagesRequest.readyState !== 4) {
           return;
@@ -335,7 +336,7 @@ function searchUser(form){
           let userMessages = JSON.parse(userMessagesRequest.responseText);
 
           // When all requests are successful, show user panel
-          localStorage.setItem("viewedSearchedUserEmail", userDataResult.data.email);
+          localStorage.setItem("viewedSearchedUserEmail", userData.email);
           form.emailSearched.value = "";
 
           loadUserViewToBrowsePanel(userData, userMessages);
@@ -354,8 +355,8 @@ function searchUser(form){
 function loadUserViewToBrowsePanel(userData, userMessages) {
   document.getElementById("userPanel").innerHTML = document.getElementById("userHomeViewBrowse").innerHTML;
 
-  document.getElementById("firstNameLabelBrowse").innerHTML = "Name: " + userData.firstname;
-  document.getElementById("familyNameLabelBrowse").innerHTML = "Family Name: " + userData.familyname;
+  document.getElementById("firstNameLabelBrowse").innerHTML = "Name: " + userData.first_name;
+  document.getElementById("familyNameLabelBrowse").innerHTML = "Family Name: " + userData.family_name;
   document.getElementById("emailLabelBrowse").innerHTML = "Email: " + userData.email;
   document.getElementById("genderLabelBrowse").innerHTML = "Gender: " + userData.gender;
   document.getElementById("cityLabelBrowse").innerHTML = "City: " + userData.city;
@@ -392,7 +393,7 @@ function refreshWallButtonClicked() {
     } else if (request.status === 404) {
       showErrors(["User not found."]);
     } else if (request.status === 200) {
-      let userMessages = JSON.parse(userMessagesRequest.responseText);
+      let userMessages = JSON.parse(request.responseText);
 
       showUserMessageWall(userMessages, panel);
     } else {
@@ -419,10 +420,11 @@ function submitChangePasswordForm(form) {
   let request = new XMLHttpRequest();
   request.open("PUT", "/change_password", true);
   request.setRequestHeader("Authorization", token);
+  request.setRequestHeader("Content-Type", "application/json;encoding=UTF-8");
 
   request.onreadystatechange = function(){
     if (this.readyState == 4){
-      if (this.status == 200){
+      if (this.status == 200) {
         form.oldPassword.value = "";
         form.newPassword.value = "";
         form.repeatPSW.value = "";
@@ -430,20 +432,15 @@ function submitChangePasswordForm(form) {
         setTimeout(function(){
           document.getElementById("messagePasswordChange").innerHTML = "";
         }, 5000);
-      }
-
-      if (this.status == 401){
+      } else if (this.status == 401){
         showErrors(["You are not logged in."]);
         localStorage.removeItem("token");
-      }
-      if (this.status == 403){
+      } else if (this.status == 403){
         showErrors(["Wrong password."]);
-      }
-      else{
+      } else {
         showErrors(["Something went wrong."]);
       }
-    }
-    else{
+    } else {
       return;
     }
   }
