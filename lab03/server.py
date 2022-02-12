@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request
+from gevent.pywsgi import WSGIServer
 import database_helper
 from database_helper import DatabaseErrorCode
 import utils
@@ -238,4 +239,5 @@ def post_message():
     return "{}", 201    #Created
 
 if __name__ == '__main__':
-    app.run()
+    http_server = WSGIServer(('', 5000), app)
+    http_server.serve_forever()
