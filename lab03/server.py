@@ -183,7 +183,7 @@ def get_user_messages_by_token():
 
     result = database_helper.read_message(user.email)
 
-    return jsonify_messages(result), 200 #OK
+    return jsonify_messages(reversed(result)), 200 #OK
 
 
 @app.route('/message/get/<email>', methods=['GET'])
@@ -204,17 +204,12 @@ def get_user_messages_by_email(email):
 
     result = database_helper.read_message(email)
 
-    return jsonify_messages(result), 200 #OK
+    return jsonify_messages(reversed(result)), 200 #OK
 
 def jsonify_messages(messages_result):
-    message_info = []
-    for message in messages_result:
-        message_info.append({
-            "owner": message.owner,
-            "message": message.message,
-            "author": message.author
-        });
-
+    message_info = [{"author" : m.author,
+                     "owner" : m.owner,
+                     "content" : m.message } for m in messages_result]
     return jsonify(message_info)
 
 
