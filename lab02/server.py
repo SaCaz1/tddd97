@@ -7,10 +7,6 @@ app = Flask(__name__)
 
 app.debug = True
 
-@app.route("/", methods = ["GET"])
-def root():
-    return app.send_static_file("static/client.html")
-
 @app.teardown_request
 def after_request(exception):
     database_helper.close_session();
@@ -27,11 +23,11 @@ def sign_in():
 
     user = database_helper.read_user(json["username"])
 
-    if user.password != json["old_password"]:
-        return "{}", 403 # Forbidden, wrong password
+    if not user:
+        return '{}', 404 # Not Found
 
-    if user is None:
-        return "{}", 401 # Unauthorized, user not connected
+    if user.password != json["password"]:
+        return "{}", 403 # Forbidden, wrong password
 
     token = utils.generate_token()
 
@@ -40,9 +36,9 @@ def sign_in():
     if result != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
 
-    response_body = "{token: %s}" % token
+    response_body = {"token" : token}
 
-    return response_body, 200 #OK
+    return jsonify(response_body), 200 #OK
 
 
 @app.route('/sign_up', methods=['POST'])
@@ -53,6 +49,8 @@ def sign_up():
         if key not in json or len(json[key]) > 255:
             return "{}", 400 #Bad Request
 
+    if len(json["password"]) < 3:
+        return "{}", 400 #Bad Request
 
     if database_helper.read_user(json["email"]) is not None:
         return "{}", 409 #Conflict
@@ -181,7 +179,7 @@ def get_user_messages_by_token():
 
     result = database_helper.read_message(user.email)
 
-    return jsonify_messages(result), 200 #OK
+    return jsonify_messages(reversed(result)), 200 #OK
 
 
 @app.route('/message/get/<email>', methods=['GET'])
@@ -202,17 +200,12 @@ def get_user_messages_by_email(email):
 
     result = database_helper.read_message(email)
 
-    return jsonify_messages(result), 200 #OK
+    return jsonify_messages(reversed(result)), 200 #OK
 
 def jsonify_messages(messages_result):
-    message_info = []
-    for message in messages_result:
-        message_info.append({
-            "owner": message.owner,
-            "message": message.message,
-            "author": message.author
-        });
-
+    message_info = [{"author" : m.author,
+                     "owner" : m.owner,
+                     "content" : m.message } for m in messages_result]
     return jsonify(message_info)
 
 
