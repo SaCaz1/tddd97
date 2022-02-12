@@ -53,8 +53,8 @@ function submitSignUpForm(form) {
   signUpDto = {
     "email": form.emailSignup.value,
     "password": form.newPassword.value,
-    "firstname": form.firstName.value,
-    "familyname": form.familyName.value,
+    "first_name": form.firstName.value,
+    "family_name": form.familyName.value,
     "gender": form.gender.value,
     "city": form.city.value,
     "country": form.country.value
@@ -62,6 +62,7 @@ function submitSignUpForm(form) {
 
   let request = new XMLHttpRequest();
   request.open('POST', '/sign_up', true);
+  request.setRequestHeader("Content-Type", "application/json;charset=utf-8");
   request.onreadystatechange = function() {
     if (request.readyState !== 4) {
       return;
@@ -136,23 +137,24 @@ function homeTabClicked() {
   // First send user data request
   let userDataRequest = new XMLHttpRequest();
   userDataRequest.open('GET', '/get_user_data_by_token', true);
-  userdataRequest.setRequestHeader('Authorization', token);
-  userdataRequest.onreadystatechange = function() {
-    if (userdataRequest.readyState !== 4) {
+  userDataRequest.setRequestHeader('Authorization', token);
+  userDataRequest.onreadystatechange = function() {
+    if (userDataRequest.readyState !== 4) {
       return;
     }
 
-    if (userdataRequest.status === 400) {
+    if (userDataRequest.status === 400) {
       showErrors(["Something went wrong. Please check if you are logged in."]);
-    } else if (userdataRequest.status === 401) {
+    } else if (userDataRequest.status === 401) {
       showErrors(["Your session expired. Please log in again."]);
-    } else if (userdataRequest.status === 200) {
-      let userData = JSON.parse(userdataRequest.responseText);
+      localStorage.removeItem("token");
+    } else if (userDataRequest.status === 200) {
+      let userData = JSON.parse(userDataRequest.responseText);
 
       // When user data request is successful, send user wall messages request
       let userMessagesRequest = new XMLHttpRequest();
       userMessagesRequest.open('GET', '/message/get', true);
-      userMessagesRequest.headers.set('Authorization', token);
+      userMessagesRequest.setRequestHeader('Authorization', token);
       userMessagesRequest.onreadystatechange = function() {
         if (userMessagesRequest.readyState !== 4) {
           return;
@@ -162,6 +164,7 @@ function homeTabClicked() {
           showErrors(["Something went wrong. Please check if you are logged in."]);
         } else if (userMessagesRequest.status === 401) {
           showErrors(["Your session expired. Please log in again."]);
+          localStorage.removeItem("token");
         } else if (userMessagesRequest.status === 200) {
           let userMessages = JSON.parse(userMessagesRequest.responseText);
 
@@ -275,6 +278,7 @@ function postButtonClicked() {
       showErrors(["Something went wrong. Check if you are logged in."]);
     } else if (request.status === 401) {
       showErrors(["Your session expired. Please log in again"]);
+      localStorage.removeItem("token");
     } else if (request.status === 500) {
       showErrors(["Something went wrong."]);
     } else if (request.status === 201) {
@@ -305,6 +309,7 @@ function searchUser(form){
       showErrors(["Something went wrong. Please check if you are logged in."]);
     } else if (userdataRequest.status === 401) {
       showErrors(["Your session expired. Please log in again."]);
+      localStorage.removeItem("token");
     } else if (userdataRequest.status === 404) {
       showErrors(["User not found."]);
     } else if (userdataRequest.status === 200) {
@@ -323,6 +328,7 @@ function searchUser(form){
           showErrors(["Something went wrong. Please check if you are logged in."]);
         } else if (userMessagesRequest.status === 401) {
           showErrors(["Your session expired. Please log in again."]);
+          localStorage.removeItem("token");
         } else if (userMessagesRequest.status === 404) {
           showErrors(["User not found."]);
         } else if (userMessagesRequest.status === 200) {
@@ -382,6 +388,7 @@ function refreshWallButtonClicked() {
       showErrors(["Something went wrong. Please check if you are logged in."]);
     } else if (request.status === 401) {
       showErrors(["Your session expired. Please log in again."]);
+      localStorage.removeItem("token");
     } else if (request.status === 404) {
       showErrors(["User not found."]);
     } else if (request.status === 200) {
@@ -427,6 +434,7 @@ function submitChangePasswordForm(form) {
 
       if (this.status == 401){
         showErrors(["You are not logged in."]);
+        localStorage.removeItem("token");
       }
       if (this.status == 403){
         showErrors(["Wrong password."]);
@@ -455,6 +463,7 @@ function submitSignOut() {
 
     if (this.status == 401){
       showErrors(["You are not signed in."]);
+      localStorage.removeItem("token");
     } else if (request.status == 200){
       localStorage.removeItem("token");
       loadPage();

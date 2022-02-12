@@ -40,9 +40,9 @@ def sign_in():
     if result != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
 
-    response_body = "{token: %s}" % token
+    response_body = {"token" : token}
 
-    return response_body, 200 #OK
+    return jsonify(response_body), 200 #OK
 
 
 @app.route('/sign_up', methods=['POST'])
@@ -53,6 +53,8 @@ def sign_up():
         if key not in json or len(json[key]) > 255:
             return "{}", 400 #Bad Request
 
+    if len(json["password"]) < 3:
+        return "{}", 400 #Bad Request
 
     if database_helper.read_user(json["email"]) is not None:
         return "{}", 409 #Conflict
