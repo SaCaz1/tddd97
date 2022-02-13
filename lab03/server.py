@@ -1,10 +1,13 @@
 from flask import Flask, jsonify, request
 from gevent.pywsgi import WSGIServer
+from geventwebsocket.handler import WebSocketHandler
 import database_helper
 from database_helper import DatabaseErrorCode
 import utils
 
 app = Flask(__name__)
+
+CLIENTS = {} #token : ws of connected clients
 
 app.debug = True
 
@@ -16,6 +19,20 @@ def root():
 def after_request(exception):
     database_helper.close_session();
 
+@app.route('/api')
+async def api():
+    if request.environ.get('wsgi.websocket'):
+        ws = request.environ['wsgi.websocket']
+
+        while not ws.closed():
+            token = ws.receive()
+            user = get_user_data_by_token(token)["email"]
+            if read_logged_in_user(user).second() not in [token, None]:
+                old_client_ws = CLIENTS[read_logged_in_user(user).second()]
+                old_client_ws.close()
+            CLIENTS[token] = ws
+    return
+
 @app.route('/sign_in', methods=['POST'])
 def sign_in():
     json = request.get_json()
@@ -23,8 +40,9 @@ def sign_in():
     if "username" not in json or "password" not in json:
         return "{}", 400 #Bad Request
 
-    if database_helper.read_logged_in_user(json['username']) is not None:
-        return "{}", 409 #Conflict
+    # we manage that with the websocket and the auto-logged out
+    #if database_helper.read_logged_in_user(json['username']) is not None:
+        #return "{}", 409 #Conflict
 
     user = database_helper.read_user(json["username"])
 
@@ -239,5 +257,5 @@ def post_message():
     return "{}", 201    #Created
 
 if __name__ == '__main__':
-    http_server = WSGIServer(('', 5000), app)
+    http_server = WSGIServer(('0.0.0.0', 5000), app, handler_class=WebSocketHandler)
     http_server.serve_forever()

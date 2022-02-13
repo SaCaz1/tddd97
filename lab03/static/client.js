@@ -4,11 +4,24 @@ window.onload = function(){
 
 // GENERAL FUCTIONS
 
+function webSocketConnection(token){
+  let connection = new WebSocket("ws://" + window.location.hostname + ":5000/api");
+
+  connection.onopen = function(){connection.send(token);}; //or setting a cookie?
+
+  connection.onclose = function(){
+    submitSignOut();
+  };
+}
+
 function loadPage() {
   let pageContent = document.getElementById("pageContent");
   let token = localStorage.getItem("token");
 
   if (token != null) {
+    // signed in so connecting to web socket and loading user home page
+    webSocketConnection(token);
+
     let content = document.getElementById("profileView").innerHTML;
     pageContent.innerHTML = content;
     homeTabClicked();
@@ -106,8 +119,8 @@ function signIn(username, password){
 
     if (request.status === 400) {
       showErrors(["The username or password are missing."]);
-    } else if (request.status === 409) {
-      showErrors(["User already logged in."]);
+    //} else if (request.status === 409) {
+      //showErrors(["User already logged in."]);
     } else if (request.status ===  404) {
       showErrors(["No such user"]);
     } else if (request.status ===  403) {
