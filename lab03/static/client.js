@@ -24,7 +24,7 @@ function webSocketConnection(token){
   }; //or setting a cookie?
 
   connection.onclose = function(){
-    submitSignOut();
+    submitSignOut(); // maybe we dont want to do this because when sever reboots we sign out as well
   };
 }
 
@@ -489,9 +489,18 @@ function submitSignOut() {
       showErrors(["You are not signed in."]);
       localStorage.removeItem("token");
     } else if (request.status == 200){
+      token = localStorage.getItem("token");
+      username = localStorage.getItem("viewedUserEmail")
+
       localStorage.removeItem("token");
-      let sign_out_event = {"type" : "sing_out"}
+
+      let sign_out_event = {
+        "type" : "sign_out",
+        "token" : token,
+        "username" : username
+      }
       connection.send(JSON.stringify(sign_out_event))
+
       loadPage();
     } else {
       showErrors(["Something went wrong."]);

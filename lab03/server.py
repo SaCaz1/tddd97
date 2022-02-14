@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, g
 from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
 import json
@@ -9,7 +9,7 @@ import utils
 
 app = Flask(__name__)
 
-CLIENTS = {} #token : ws of connected clients
+g.ws_clients = {} #user_email : ws of connected clients
 
 app.debug = True
 
@@ -34,15 +34,33 @@ async def api():
                 user_email = database_helper.get_user_data_by_token(token)["email"]
                 sessions = database_helper.read_all_user_sessions(user_email);
 
+                if token not in [s.token for s in sessions]:
+                    # handle not existing token somehow
+                    return
+
                 if len(sessions) > 1:
-                    old_tokens = list(filter(lambda s: s["token"] != token, sessions))
+                    old_tokens = filter(lambda s: s.token != token, sessions)
                     for old_token in old_tokens:
                         database_helper.delete_logged_in_user(user_email, old_token)
 
-                CLIENTS[user_email].close()
-                CLIENTS[user_email] = ws
-                
-    return
+                g.ws_clients[user_email].close()
+                g.ws_clients[user_email] = ws
+            elif message.get('type') == 'sign_out':
+                token = message.get('token')
+                user_email = message.get('username')
+
+                database_helper.delete_logged_in_user(user_email, token)
+
+                g.ws_clients[user_email].close()
+                g.ws_clients[user_email] = ws
+
+def disconnect_user_ws(username):
+    try:
+        g.ws_clients[username].close()
+        g.ws_clients[username] = None
+    catch Error as e:
+        print(e)
+
 
 @app.route('/sign_in', methods=['POST'])
 def sign_in():
@@ -69,6 +87,8 @@ def sign_in():
 
     if result != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
+
+    disconnect_user_ws(json["username"])
 
     response_body = {"token" : token}
 
@@ -120,6 +140,8 @@ def sign_out():
 
     if database_helper.delete_logged_in_user(user.email, token) != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
+
+    disconnect_user_ws(user.email)
 
     return "{}", 200 #OK
 
