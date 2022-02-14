@@ -3,11 +3,25 @@ window.onload = function(){
 }
 
 // GENERAL FUCTIONS
-
+let connection = null;
 function webSocketConnection(token){
-  let connection = new WebSocket("ws://" + window.location.hostname + ":5000/api");
+  if connection != null){
+    try{
+      connection.close();
+    }
+    catch (error){
+      console.log(error);
+    }
+  }
+  connection = new WebSocket("ws://" + window.location.hostname + ":5000/api");
 
-  connection.onopen = function(){connection.send(token);}; //or setting a cookie?
+  let connection_object = {
+    "type": "connection_open",
+    "token": token
+  }
+  connection.onopen = function(){
+    connection.send(JSON.stringify(connection_object));
+  }; //or setting a cookie?
 
   connection.onclose = function(){
     submitSignOut();

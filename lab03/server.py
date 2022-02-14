@@ -1,9 +1,11 @@
 from flask import Flask, jsonify, request
 from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
+import json
 import database_helper
 from database_helper import DatabaseErrorCode
 import utils
+
 
 app = Flask(__name__)
 
@@ -25,12 +27,21 @@ async def api():
         ws = request.environ['wsgi.websocket']
 
         while not ws.closed():
-            token = ws.receive()
-            user = get_user_data_by_token(token)["email"]
-            if read_logged_in_user(user).second() not in [token, None]:
-                old_client_ws = CLIENTS[read_logged_in_user(user).second()]
-                old_client_ws.close()
-            CLIENTS[token] = ws
+            message = json.loads(ws.receive())
+
+            if message.get('type') == 'connection_open':
+                token = data.get('token')
+                user_email = database_helper.get_user_data_by_token(token)["email"]
+                sessions = database_helper.read_all_user_sessions(user_email);
+
+                if len(sessions) > 1:
+                    old_tokens = list(filter(lambda s: s["token"] != token, sessions))
+                    for old_token in old_tokens:
+                        database_helper.delete_logged_in_user(user_email, old_token)
+
+                CLIENTS[user_email].close()
+                CLIENTS[user_email] = ws
+                
     return
 
 @app.route('/sign_in', methods=['POST'])
@@ -101,12 +112,13 @@ def sign_out():
     if "Authorization" not in headers:
         return "{}", 400 #Bad Request
 
-    user = database_helper.read_user_by_token(headers["Authorization"])
+    token = headers["Authorization"]
+    user = database_helper.read_user_by_token(token)
 
     if user is None:
         return "{}", 401 # Unauthorized
 
-    if database_helper.delete_logged_in_user(user.email) != DatabaseErrorCode.Success:
+    if database_helper.delete_logged_in_user(user.email, token) != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
 
     return "{}", 200 #OK

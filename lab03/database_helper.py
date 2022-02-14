@@ -109,9 +109,14 @@ def read_logged_in_user(email):
     result = session.query(LoggedInUser).filter(LoggedInUser.username == email).one_or_none()
     return result
 
-def delete_logged_in_user(email):
+def read_all_user_sessions(email):
     session = get_session()
-    result = session.query(LoggedInUser).filter(LoggedInUser.username == email)
+    results = session.query(LoggedInUser).filter(LoggedInUser.username == email)
+    return results
+
+def delete_logged_in_user(email, token):
+    session = get_session()
+    result = session.query(LoggedInUser).filter(LoggedInUser.username == email and LoggedInUser.token == token)
     if result.first() is not None:
         session.delete(result.first())
         session.commit()
