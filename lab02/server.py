@@ -27,7 +27,7 @@ def sign_in():
         return '{}', 404 # Not Found
 
     if user.password != json["password"]:
-        return "{}", 403 # Forbidden, wrong password
+        return "{}", 401 # Unauthenticated, wrong password
 
     token = utils.generate_token()
 
@@ -76,7 +76,7 @@ def sign_up():
 def sign_out():
     headers = request.headers
     if "Authorization" not in headers:
-        return "{}", 400 #Bad Request
+        return "{}", 401 #Unauthenticated
 
     user = database_helper.read_user_by_token(headers["Authorization"])
 
@@ -93,16 +93,19 @@ def change_password():
     json = request.get_json()
     headers = request.headers
 
-    if "Authorization" not in headers or "old_password" not in json or "new_password" not in json:
+    if "Authorization" not in headers:
+        return "{}", 401 #Unauthenticated
+
+    if "old_password" not in json or "new_password" not in json:
         return "{}", 400 #Bad Request
 
     user = database_helper.read_user_by_token(headers["Authorization"])
 
     if user.password != json["old_password"]:
-        return "{}", 403 # Forbidden, wrong password
+        return "{}", 401 # Unauthenticated, wrong password
 
     if user is None:
-        return "{}", 401 # Unauthorized, user not connected
+        return "{}", 401 # Unauthenticated, user not connected
 
     if database_helper.update_user_password(user.email, json["new_password"]) != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
@@ -114,7 +117,7 @@ def get_user_data_by_token():
     headers = request.headers
 
     if "Authorization" not in headers:
-        return "{}", 400 #Bad Request
+        return "{}", 401 #Unauthenticated
 
     token = headers.get("Authorization")
 
@@ -140,7 +143,7 @@ def get_user_data_by_email(email):
     headers = request.headers
 
     if "Authorization" not in headers:
-        return "{}", 400 #Bad Request
+        return "{}", 401 #Unauthenticated
 
     token = headers.get("Authorization")
 
@@ -169,13 +172,13 @@ def get_user_messages_by_token():
     headers = request.headers
 
     if "Authorization" not in headers:
-        return "{}", 400 #Bad Request
+        return "{}", 401 #Unauthenticated
 
     token = headers.get("Authorization")
 
     user = database_helper.read_user_by_token(token)
     if user is None:
-        return "{}", 401 #Unauthorized, user not connected
+        return "{}", 401 #Unauthenticated, user not connected
 
     result = database_helper.read_message(user.email)
 
@@ -187,7 +190,7 @@ def get_user_messages_by_email(email):
     headers = request.headers
 
     if "Authorization" not in headers:
-        return "{}", 400 #Bad Request
+        return "{}", 401 #Unauthenticated
 
     token = headers.get("Authorization")
     user = database_helper.read_user_by_token(token)
@@ -212,8 +215,9 @@ def jsonify_messages(messages_result):
 @app.route('/message/post', methods=['POST'])
 def post_message():
     headers = request.headers
+
     if "Authorization" not in headers:
-        return "{}", 400 #Bad Request
+        return "{}", 401 #Unauthenticated
 
     if database_helper.read_user_by_token(headers["Authorization"]) is None:
         return "{}", 401 # Unauthorized
