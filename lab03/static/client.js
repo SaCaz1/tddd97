@@ -490,6 +490,8 @@ function submitSignOut() {
       localStorage.removeItem("token");
     } else if (request.status == 200){
       localStorage.removeItem("token");
+      let sign_out_event = {"type" : "sing_out"}
+      connection.send(JSON.stringify(sign_out_event))
       loadPage();
     } else {
       showErrors(["Something went wrong."]);
