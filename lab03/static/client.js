@@ -1,31 +1,48 @@
-window.onload = function(){
+// const io = require("socket.io-client");
+
+window.onload = function() {
   loadPage();
 }
 
 // GENERAL FUCTIONS
 let connection = null;
-function webSocketConnection(token){
-  if connection != null){
-    try{
-      connection.close();
+function webSocketConnection(token) {
+  if (connection != null) {
+    try {
+      connection.disconnect();
     }
-    catch (error){
+    catch (error) {
       console.log(error);
     }
   }
-  connection = new WebSocket("ws://" + window.location.hostname + ":5000/api");
+  connection = io("ws://" + window.location.hostname + ":5000/autologout");
 
-  let connection_object = {
-    "type": "connection_open",
-    "token": token
+  connection.on('connect', () => {
+    connection.emit("connection_open", { "token": token });
+    console.log("web socket opened");
+  }); //or setting a cookie?
+
+  let log_out = () => {
+    if (localStorage.getItem("token") !== null) {
+      showErrors(["Log in to your account from another browser took place. You will be logged out."])
+    }
+    localStorage.removeItem("token")
+    connection.disconnect();
+    setTimeout(function(){
+      loadPage();
+    }, 3000);
   }
-  connection.onopen = function(){
-    connection.send(JSON.stringify(connection_object));
-  }; //or setting a cookie?
 
-  connection.onclose = function(){
-    submitSignOut(); // maybe we dont want to do this because when sever reboots we sign out as well
-  };
+  connection.on("autologout", () => {
+    console.log("autologout message");
+    log_out();
+  });
+
+  connection.on("disconnect", (reason) => {
+    // submitSignOut(); // maybe we dont want to do this because when sever reboots we sign out as well
+    console.log("web socket closed: " + reason);
+    log_out();
+  });
 }
 
 function loadPage() {
@@ -33,12 +50,12 @@ function loadPage() {
   let token = localStorage.getItem("token");
 
   if (token != null) {
-    // signed in so connecting to web socket and loading user home page
-    webSocketConnection(token);
-
     let content = document.getElementById("profileView").innerHTML;
     pageContent.innerHTML = content;
     homeTabClicked();
+
+    // signed in so connecting to web socket and loading user home page
+    webSocketConnection(token);
   } else {
     let content = document.getElementById("welcomeView").innerHTML;
     pageContent.innerHTML = content;
@@ -489,17 +506,7 @@ function submitSignOut() {
       showErrors(["You are not signed in."]);
       localStorage.removeItem("token");
     } else if (request.status == 200){
-      token = localStorage.getItem("token");
-      username = localStorage.getItem("viewedUserEmail")
-
       localStorage.removeItem("token");
-
-      let sign_out_event = {
-        "type" : "sign_out",
-        "token" : token,
-        "username" : username
-      }
-      connection.send(JSON.stringify(sign_out_event))
 
       loadPage();
     } else {
