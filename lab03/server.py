@@ -20,8 +20,7 @@ def connection_open(auth):
     join_room(auth["token"])
 
 def send_autologout(token):
-    print("#WS# sending autologout to user")
-    emit("autologout", to=token, namespace='/autologout')
+    emit("autologout", to=token, namespace='/autologout')    
 
 @app.route("/", methods = ["GET"])
 def root():
@@ -265,7 +264,5 @@ def post_message():
     return "{}", 201    #Created
 
 if __name__ == '__main__':
-    print("server start")
-    # http_server = WebSocketServer(('0.0.0.0', 5000), app, handler_class=WebSocketHandler, debug=True)
     http_server = WSGIServer(('0.0.0.0', 5000), app, handler_class=WebSocketHandler)
     http_server.serve_forever()
