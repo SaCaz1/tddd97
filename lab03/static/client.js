@@ -6,7 +6,7 @@ window.onload = function() {
 
 // GENERAL FUCTIONS
 let connection = null;
-function webSocketConnection(token) {
+function webSocketConnection(token, success_callback) {
   if (connection != null) {
     try {
       connection.disconnect();
@@ -15,33 +15,49 @@ function webSocketConnection(token) {
       console.log(error);
     }
   }
-  connection = io("ws://" + window.location.hostname + ":5000/autologout");
+  connection = io("ws://" + window.location.hostname + ":5000/autologout", {
+    auth: {
+      token : token
+    }
+  }); //arguments in SocketIo events are automatically encoded in JSON
 
   connection.on('connect', () => {
-    connection.emit("connection_open", { "token": token });
-    console.log("web socket opened");
+    success_callback()
+    console.log("ws connection established.")
   }); //or setting a cookie?
 
-  let log_out = () => {
+  let log_out = (message, time) => {
     if (localStorage.getItem("token") !== null) {
-      showErrors(["Log in to your account from another browser took place. You will be logged out."])
+      showErrors([message])
     }
     localStorage.removeItem("token")
-    connection.disconnect();
+    //connection.disconnect(); cause a loop if call here
     setTimeout(function(){
       loadPage();
-    }, 3000);
+    }, time);
   }
+
+  connection.on("connect_error", (error) => {
+    console.log(error);
+    message = "Something went wrong.";
+    log_out(message, 3000);
+  });
 
   connection.on("autologout", () => {
     console.log("autologout message");
-    log_out();
+    message = "Log in to your account from another browser took place. You will be logged out.";
+    log_out(message, 3000);
   });
 
+
   connection.on("disconnect", (reason) => {
-    // submitSignOut(); // maybe we dont want to do this because when sever reboots we sign out as well
     console.log("web socket closed: " + reason);
-    log_out();
+    connection = null;
+
+    if (reason == "transport close") { //connection ended from server side
+      message = "Network communication problems. Please log in again.";
+      log_out(message, 100);
+      }
   });
 }
 
@@ -50,12 +66,12 @@ function loadPage() {
   let token = localStorage.getItem("token");
 
   if (token != null) {
-    let content = document.getElementById("profileView").innerHTML;
-    pageContent.innerHTML = content;
-    homeTabClicked();
-
-    // signed in so connecting to web socket and loading user home page
-    webSocketConnection(token);
+    // user signed in so connecting to web socket and loading user home page
+    webSocketConnection(token, () => {
+      let content = document.getElementById("profileView").innerHTML;
+      pageContent.innerHTML = content;
+      homeTabClicked();
+    });
   } else {
     let content = document.getElementById("welcomeView").innerHTML;
     pageContent.innerHTML = content;

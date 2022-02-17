@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
-from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_socketio import SocketIO, emit, join_room, leave_room, ConnectionRefusedError
 import json
 import database_helper
 from database_helper import DatabaseErrorCode
@@ -13,10 +13,11 @@ socketio = SocketIO(app)
 
 app.debug = True
 
-@socketio.on("connection_open", namespace='/autologout')
-def connection_open(message):
-    token = message["token"]
-    join_room(token)
+@socketio.on("connect", namespace='/autologout')
+def connection_open(auth):
+    if not auth or not 'token' in auth or database_helper.read_user_by_token(auth["token"]) is None:
+        raise ConnectionRefusedError("unauthenticated")
+    join_room(auth["token"])
 
 def send_autologout(token):
     print("#WS# sending autologout to user")
