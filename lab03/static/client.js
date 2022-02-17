@@ -56,7 +56,7 @@ function webSocketConnection(token, success_callback) {
     console.log("web socket closed: " + reason);
     connection = null;
 
-    if (reason == "transport close") { //connection ended from server side
+    if (reason != "io client disconnect") { //connection ended from server side
       message = "Network communication problems. Please log in again.";
       log_out(message, 100);
       }
