@@ -6,7 +6,7 @@ window.onload = function() {
 
 // GENERAL FUCTIONS
 let connection = null;
-function webSocketConnection(token, success_callback) {
+function webSocketDisconnection(){
   if (connection != null) {
     try {
       connection.disconnect();
@@ -15,6 +15,9 @@ function webSocketConnection(token, success_callback) {
       console.log(error);
     }
   }
+}
+
+function webSocketConnection(token, success_callback) {
   connection = io("ws://" + window.location.hostname + ":5000/autologout", {
     auth: {
       token : token
@@ -31,7 +34,6 @@ function webSocketConnection(token, success_callback) {
       showErrors([message])
     }
     localStorage.removeItem("token")
-    //connection.disconnect(); cause a loop if call here
     setTimeout(function(){
       loadPage();
     }, time);
@@ -62,6 +64,7 @@ function webSocketConnection(token, success_callback) {
 }
 
 function loadPage() {
+  webSocketDisconnection(); //disconnect any websockets that could still be connected
   let pageContent = document.getElementById("pageContent");
   let token = localStorage.getItem("token");
 
