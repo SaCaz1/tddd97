@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, redirect
 from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
 from flask_socketio import SocketIO, emit, join_room, leave_room, ConnectionRefusedError
@@ -22,9 +22,23 @@ def connection_open(auth):
 def send_autologout(token):
     emit("autologout", to=token, namespace='/autologout')
 
+
 @app.route("/", methods = ["GET"])
 def root():
     return app.send_static_file("client.html")
+
+
+@app.route("/home", methods = ["GET"])
+@app.route("/browse", methods = ["GET"])
+@app.route("/account", methods = ["GET"])
+def alt_root():
+    return app.send_static_file("client.html")
+
+
+@app.route("/welcome", methods = ["GET"])
+def welcome_root():
+    return redirect("/")
+
 
 @app.teardown_request
 def after_request(exception):

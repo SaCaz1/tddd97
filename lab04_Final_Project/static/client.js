@@ -1,25 +1,23 @@
-// const io = require("socket.io-client");
-// const page = require('page');
-
-//window.onload = function() {
-//   page.redirect('/');
-//}
 
 page('/', function() {
   if (userLoggedIn()) {
-    page.redirect('/home');
+    page.redirect('/home')
   } else {
     page.redirect('/welcome')
   }
 });
 
 page('/home', function() {
+  if (!userLoggedIn()) {
+    page.redirect('/welcome');
+  };
+
   webSocketDisconnection(); //disconnect any websockets that could still be connected
-  let pageContent = document.getElementById("pageContent");
   let token = localStorage.getItem("token");
 
   // user signed in so connecting to web socket and loading user home page
   webSocketConnection(token, () => {
+    let pageContent = document.getElementById("pageContent");
     let content = document.getElementById("profileView").innerHTML;
     pageContent.innerHTML = content;
     homeTabClicked();
@@ -31,14 +29,39 @@ page('/welcome', function() {
   let pageContent = document.getElementById("pageContent");
   let content = document.getElementById("welcomeView").innerHTML;
   pageContent.innerHTML = content;
+
 });
 
 page('/browse', function() {
-  tabClicked('browse')
+  if (!userLoggedIn()) {
+    page.redirect('/welcome');
+  };
+
+  webSocketDisconnection(); //disconnect any websockets that could still be connected
+  let token = localStorage.getItem("token");
+
+  webSocketConnection(token, () => {
+    let pageContent = document.getElementById("pageContent");
+    let content = document.getElementById("profileView").innerHTML;
+    pageContent.innerHTML = content;
+    tabClicked('browse');
+  });
 });
 
 page('/account', function() {
-    tabClicked('account')
+  if (!userLoggedIn()) {
+    page.redirect('/welcome');
+  };
+
+  webSocketDisconnection(); //disconnect any websockets that could still be connected
+  let token = localStorage.getItem("token");
+
+  webSocketConnection(token, () => {
+    let pageContent = document.getElementById("pageContent");
+    let content = document.getElementById("profileView").innerHTML;
+    pageContent.innerHTML = content;
+    tabClicked('account');
+  });
 });
 
 
@@ -110,21 +133,7 @@ function webSocketConnection(token, success_callback) {
 }
 
 function loadPage() {
-  webSocketDisconnection(); //disconnect any websockets that could still be connected
-  let pageContent = document.getElementById("pageContent");
-  let token = localStorage.getItem("token");
-
-  if (token != null) {
-    // user signed in so connecting to web socket and loading user home page
-    webSocketConnection(token, () => {
-      let content = document.getElementById("profileView").innerHTML;
-      pageContent.innerHTML = content;
-      homeTabClicked();
-    });
-  } else {
-    let content = document.getElementById("welcomeView").innerHTML;
-    pageContent.innerHTML = content;
-  }
+  page.redirect('/');
 }
 
 function showErrors(errorMessages){
