@@ -270,3 +270,8 @@ body{
   height: 30px;
   font-size: medium;
 }
+
+.provider-logo {
+  width: 30px;
+  height: 30px;
+}

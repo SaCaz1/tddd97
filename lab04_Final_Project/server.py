@@ -1,8 +1,11 @@
-from flask import Flask, jsonify, request, redirect
+from flask import Flask, jsonify, request, redirect, url_for
 from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
 from flask_socketio import SocketIO, emit, join_room, leave_room, ConnectionRefusedError
+from flask_dance.contrib.google import make_google_blueprint, google
+from flask_dance.consumer import oauth_authorized
 import json
+import os
 import database_helper
 from database_helper import DatabaseErrorCode
 import utils
@@ -13,9 +16,20 @@ socketio = SocketIO(app)
 
 app.debug = True
 
+app.secret_key = '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' #os.environ.get("FLASK_SECRET_KEY", "supersekrit")
+app.config["GOOGLE_OAUTH_CLIENT_ID"] =  '73157974313-hu0rgv0t639rvj0l8l1tj3of6t2lna9l.apps.googleusercontent.com'#os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
+app.config["GOOGLE_OAUTH_CLIENT_SECRET"] = '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' #os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+app.config["SESSION_REFRESH_EACH_REQUEST"] = False
+google_bp = make_google_blueprint(scope=["openid", "https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"])
+app.register_blueprint(google_bp, url_prefix="/auth")
+
 @socketio.on("connect", namespace='/autologout')
 def connection_open(auth):
-    if not auth or not 'token' in auth or database_helper.read_user_by_token(auth["token"]) is None:
+    print('websocket')
+    print(auth['token'])
+    print(database_helper.read_user_by_token(auth["token"]))
+    if not auth or not 'token' in auth or not database_helper.read_user_by_token(auth["token"]) is None:
         raise ConnectionRefusedError("unauthenticated")
     join_room(auth["token"])
 
@@ -25,14 +39,24 @@ def send_autologout(token):
 
 @app.route("/", methods = ["GET"])
 def root():
-    return app.send_static_file("client.html")
+    print('root')
+    print('session token', request.cookies.get('session_token'))
+
+    response = app.send_static_file("client.html")
+    # response.delete_cookie('session_token')
+    return response
 
 
 @app.route("/home", methods = ["GET"])
 @app.route("/browse", methods = ["GET"])
 @app.route("/account", methods = ["GET"])
 def alt_root():
-    return app.send_static_file("client.html")
+    print('home, browse, account')
+    print('session token', request.cookies.get('session_token'))
+
+    response = app.send_static_file("client.html")
+    # response.delete_cookie('session_token')
+    return response
 
 
 @app.route("/welcome", methods = ["GET"])
@@ -44,6 +68,56 @@ def welcome_root():
 def after_request(exception):
     database_helper.close_session();
 
+@google_bp.route("/google", methods=["GET", "POST"])
+def google_login():
+    print(url_for("auth.google"))
+    return redirect(url_for("auth.google"))
+
+@oauth_authorized.connect
+def redirect_to_home(bluepring, token):
+    # retrieve email address
+    # if account is created - go to / with newly generated sesison token
+    # if not - create user account and go to / with newly generated sesion token
+    resp = google.get("/oauth2/v1/userinfo")
+    user_info_dto = resp.json()
+
+    if database_helper.read_user(user_info_dto["email"]):
+
+        old_session = database_helper.read_logged_in_user(user_info_dto["email"])
+
+        token = utils.generate_token()
+        result = database_helper.create_logged_in_user(user_info_dto["email"], token)
+
+        if result != DatabaseErrorCode.Success:
+            return "{}", 500 #Internal Server Error
+
+        if old_session:
+            if database_helper.delete_logged_in_user(old_session.username, old_session.token) != DatabaseErrorCode.Success:
+                return "{}", 500 #Internal Server Error
+
+            send_autologout(old_session.token)
+    else:
+        user_info = {
+            "email": user_info_dto["email"],
+            "password": None,
+            "first_name": user_info_dto["given_name"],
+            "family_name": user_info_dto["family_name"],
+            "gender": None,
+            "city": None,
+            "country": None
+        }
+        database_helper.create_user(user_info)
+
+        token = utils.generate_token()
+        result = database_helper.create_logged_in_user(user_info_dto["email"], token)
+
+        if result != DatabaseErrorCode.Success:
+            return "{}", 500 #Internal Server Error
+
+    response = redirect('/')
+    response.set_cookie('session_token', token)
+    print('redirecting to root')
+    return response
 
 @app.route('/sign_in', methods=['POST'])
 def sign_in():
@@ -82,7 +156,6 @@ def sign_in():
     response_body = {"token" : token}
 
     return jsonify(response_body), 200 #OK
-
 
 @app.route('/sign_up', methods=['POST'])
 def sign_up():

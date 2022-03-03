@@ -16,7 +16,7 @@
             <form class="loginForm" onsubmit="submitSignInForm(this); return false;">
               <label for="emailLogin">Email </label><input type="email" name="emailLogin" id="emailLogin" value="" required>
               <label for="password">Password </label><input type="password" name="password" id="password" value="" required>
-              <input type="submit" name="loginBtn" value="login">
+              <img src="static/google_logo.png" alt="Sign in with Google" class="provider-logo" onclick="externalSignIn('google');"><input type="submit" name="loginBtn" value="login">
             </form>
           </div>
           <div class="signup">

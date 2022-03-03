@@ -1,5 +1,7 @@
 
 page('/', function() {
+  console.log(document.cookie);
+  console.log(localStorage.getItem('token'))
   if (userLoggedIn()) {
     page.redirect('/home')
   } else {
@@ -70,7 +72,27 @@ page('*', function(){
 });
 
 function userLoggedIn() {
-  return localStorage.getItem('token') != null;
+  if (localStorage.getItem('token') != null) {
+    console.log("Token in local storage");
+    return true;
+  } else {
+    token = getCookie('session_token');
+
+    if (token != null) {
+      console.log("Token in cookie");
+      localStorage.setItem('token', token);
+      return true;
+    } else {
+      console.log("Token not provided");
+      return false;
+    }
+  }
+}
+
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
 }
 
 // GENERAL FUCTIONS
@@ -160,7 +182,7 @@ function validateFormAndShowErrors(form) {
     showErrors(["Repeating password does not match!"]);
     return false;
   }
-  return true;tabClicked
+  return true;
 };
 
 function submitSignUpForm(form) {
@@ -243,6 +265,10 @@ function signIn(username, password){
   }
 
   request.send(JSON.stringify(signInDto));
+}
+
+function externalSignIn(provider) {
+  window.location.replace("/auth/" + provider);
 }
 
 // MAIN PAGE FUNCITONS
