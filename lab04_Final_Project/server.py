@@ -4,6 +4,8 @@ from geventwebsocket.handler import WebSocketHandler
 from flask_socketio import SocketIO, emit, join_room, leave_room, ConnectionRefusedError
 from flask_dance.contrib.google import make_google_blueprint, google
 from flask_dance.consumer import oauth_authorized
+from flask_bcrypt import Bcrypt
+import secrets
 import json
 import os
 import database_helper
@@ -13,6 +15,7 @@ import utils
 
 app = Flask(__name__)
 socketio = SocketIO(app)
+bcrypt = Bcrypt(app)
 
 app.debug = True
 
@@ -128,7 +131,7 @@ def sign_in():
     if not user:
         return '{}', 404 # Not Found
 
-    if user.password != json["password"]:
+    if not validate_password(user.password, json["password"]):
         return "{}", 401 # Unauthenticated, wrong password
 
     old_session = database_helper.read_logged_in_user(json['username'])
@@ -166,7 +169,7 @@ def sign_up():
 
     user_info = {
         "email": json["email"],
-        "password": json["password"],
+        "password": generate_secure_password(json["password"]),
         "first_name": json["first_name"],
         "family_name": json["family_name"],
         "gender": json["gender"],
@@ -211,13 +214,13 @@ def change_password():
 
     user = database_helper.read_user_by_token(headers["Authorization"])
 
-    if user.password != json["old_password"]:
+    if not validate_password(user.password, json["old_password"]):
         return "{}", 401 # Unauthenticated, wrong password
 
     if user is None:
         return "{}", 401 # Unauthorized, user not connected
 
-    if database_helper.update_user_password(user.email, json["new_password"]) != DatabaseErrorCode.Success:
+    if database_helper.update_user_password(user.email, generate_secure_password(json["new_password"])) != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
 
     return "{}", 200 # OK
@@ -344,6 +347,20 @@ def post_message():
         return "{}", 500  #Internal server error
 
     return "{}", 201    #Created
+
+# SECURITY FUNCITONS
+
+def generate_secure_password(password):
+    salt = secrets.token_hex(16)
+    hashed_password = bcrypt.generate_password_hash(password + salt).decode('utf-8')
+    return (hashed_password + salt)
+
+def validate_password(psw_stored, psw_to_validate):
+    salt = psw_stored[-32:]
+    psw_hashed = psw_stored[:-32]
+    print(salt)
+    return bcrypt.check_password_hash(psw_hashed, psw_to_validate + salt)
+
 
 if __name__ == '__main__':
     http_server = WSGIServer(('0.0.0.0', 5000), app, handler_class=WebSocketHandler)

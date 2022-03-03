@@ -219,7 +219,7 @@ function submitSignUpForm(form) {
       showErrors(["Something went wrong."]);
     } else if (request.status === 201) {
       let username = signUpDto.email;
-      let password = tabClickedsignUpDto.password;
+      let password = signUpDto.password;
 
       signIn(username, password);
     } else {
