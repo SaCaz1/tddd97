@@ -26,10 +26,7 @@ app.register_blueprint(google_bp, url_prefix="/auth")
 
 @socketio.on("connect", namespace='/autologout')
 def connection_open(auth):
-    print('websocket')
-    print(auth['token'])
-    print(database_helper.read_user_by_token(auth["token"]))
-    if not auth or not 'token' in auth: #or database_helper.read_user_by_token(auth["token"]) is None:
+    if not auth or not 'token' in auth or database_helper.read_user_by_token(auth["token"]) is None:
         raise ConnectionRefusedError("unauthenticated")
     join_room(auth["token"])
 
@@ -39,9 +36,6 @@ def send_autologout(token):
 
 @app.route("/", methods = ["GET"])
 def root():
-    print('root')
-    print('session token', request.cookies.get('session_token'))
-
     response = app.send_static_file("client.html")
     # response.delete_cookie('session_token')
     return response
@@ -51,9 +45,6 @@ def root():
 @app.route("/browse", methods = ["GET"])
 @app.route("/account", methods = ["GET"])
 def alt_root():
-    print('home, browse, account')
-    print('session token', request.cookies.get('session_token'))
-
     response = app.send_static_file("client.html")
     # response.delete_cookie('session_token')
     return response
@@ -70,7 +61,6 @@ def after_request(exception):
 
 @google_bp.route("/google", methods=["GET", "POST"])
 def google_login():
-    print(url_for("auth.google"))
     return redirect(url_for("auth.google"))
 
 @oauth_authorized.connect
@@ -80,23 +70,32 @@ def redirect_to_home(bluepring, token):
     # if not - create user account and go to / with newly generated sesion token
     resp = google.get("/oauth2/v1/userinfo")
     user_info_dto = resp.json()
+    token = utils.generate_token()
 
     if database_helper.read_user(user_info_dto["email"]):
+        google_sign_in(user_info_dto["email"], token)
 
-        old_session = database_helper.read_logged_in_user(user_info_dto["email"])
+    else:
+        google_sign_up(user_info_dto, token)
 
-        token = utils.generate_token()
-        result = database_helper.create_logged_in_user(user_info_dto["email"], token)
+    response = redirect('/')
+    response.set_cookie('session_token', token)
+    return response
 
-        if result != DatabaseErrorCode.Success:
+def google_sign_in(email, token):
+    old_session = database_helper.read_logged_in_user(email)
+    result = database_helper.create_logged_in_user(email, token)
+
+    if result != DatabaseErrorCode.Success:
+        return "{}", 500 #Internal Server Error
+
+    if old_session:
+        if database_helper.delete_logged_in_user(old_session.username, old_session.token) != DatabaseErrorCode.Success:
             return "{}", 500 #Internal Server Error
 
-        if old_session:
-            if database_helper.delete_logged_in_user(old_session.username, old_session.token) != DatabaseErrorCode.Success:
-                return "{}", 500 #Internal Server Error
+        send_autologout(old_session.token)
 
-            send_autologout(old_session.token)
-    else:
+def google_sign_up(user_info_dto, token):
         user_info = {
             "email": user_info_dto["email"],
             "password": None,
@@ -107,17 +106,11 @@ def redirect_to_home(bluepring, token):
             "country": None
         }
         database_helper.create_user(user_info)
-
-        token = utils.generate_token()
         result = database_helper.create_logged_in_user(user_info_dto["email"], token)
 
         if result != DatabaseErrorCode.Success:
             return "{}", 500 #Internal Server Error
 
-    response = redirect('/')
-    response.set_cookie('session_token', token)
-    print('redirecting to root')
-    return response
 
 @app.route('/sign_in', methods=['POST'])
 def sign_in():
@@ -238,7 +231,7 @@ def get_user_data_by_token():
 
     token = headers.get("Authorization")
     user = database_helper.read_user_by_token(token)
-    
+
     if user is None:
         return "{}", 401 #Unauthorized, user not connected
 
