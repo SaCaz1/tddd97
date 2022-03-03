@@ -94,7 +94,7 @@ function getCookie(name) {
   const parts = value.split(`; ${name}=`);
 
   document.cookie = "session_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC;"; //deletes used cookie
-  
+
   if (parts.length === 2) return parts.pop().split(';').shift();
 }
 
@@ -253,7 +253,7 @@ function signIn(username, password){
       //showErrors(["User already logged in."]);
     } else if (request.status ===  404) {
       showErrors(["No such user"]);
-    } else if (request.status ===  403) {
+    } else if (request.status ===  401) {
       showErrors(["Wrong password."]);
     } else if (request.status === 500) {
       showErrors(["Something went wrong."]);
@@ -580,10 +580,9 @@ function submitChangePasswordForm(form) {
           document.getElementById("messagePasswordChange").innerHTML = "";
         }, 5000);
       } else if (this.status == 401){
-        showErrors(["You are not logged in."]);
-        localStorage.removeItem("token");
-      } else if (this.status == 403){
-        showErrors(["Wrong password."]);
+        showErrors(["You are not logged in or the password is incorrect"]);
+      //} else if (this.status == 401){
+      //  showErrors(["Wrong password."]);
       } else {
         showErrors(["Something went wrong."]);
       }
