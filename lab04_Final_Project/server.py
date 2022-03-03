@@ -17,8 +17,8 @@ socketio = SocketIO(app)
 app.debug = True
 
 app.secret_key = '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' #os.environ.get("FLASK_SECRET_KEY", "supersekrit")
-app.config["GOOGLE_OAUTH_CLIENT_ID"] =  '73157974313-hu0rgv0t639rvj0l8l1tj3of6t2lna9l.apps.googleusercontent.com'#os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
-app.config["GOOGLE_OAUTH_CLIENT_SECRET"] = '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' #os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
+app.config["GOOGLE_OAUTH_CLIENT_ID"] =  '1019540628960-bgkqval4a7iceas5tattfc65v8ju2icc.apps.googleusercontent.com'#os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
+app.config["GOOGLE_OAUTH_CLIENT_SECRET"] = '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' #os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 app.config["SESSION_REFRESH_EACH_REQUEST"] = False
 google_bp = make_google_blueprint(scope=["openid", "https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"])
@@ -29,7 +29,7 @@ def connection_open(auth):
     print('websocket')
     print(auth['token'])
     print(database_helper.read_user_by_token(auth["token"]))
-    if not auth or not 'token' in auth or not database_helper.read_user_by_token(auth["token"]) is None:
+    if not auth or not 'token' in auth: #or database_helper.read_user_by_token(auth["token"]) is None:
         raise ConnectionRefusedError("unauthenticated")
     join_room(auth["token"])
 
@@ -237,9 +237,8 @@ def get_user_data_by_token():
         return "{}", 401 #Unauthorized
 
     token = headers.get("Authorization")
-
     user = database_helper.read_user_by_token(token)
-
+    
     if user is None:
         return "{}", 401 #Unauthorized, user not connected
 
