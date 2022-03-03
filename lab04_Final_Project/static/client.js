@@ -226,6 +226,7 @@ function submitSignUpForm(form) {
       showErrors(["Something went wrong."]);
     }
   }
+
   request.send(JSON.stringify(signUpDto));
 };
 
@@ -283,8 +284,16 @@ function homeTabClicked() {
 
   // First send user data request
   let userDataRequest = new XMLHttpRequest();
+  let message = JSON.stringify({
+    "public_key": localStorage.getItem("viewedUserEmail"),
+    "method" : "GET",
+    "URL" : "/get_user_data_by_token"
+  });
+
+  let hash = CryptoJS.hmacSHA512(message, token);
+
   userDataRequest.open('GET', '/get_user_data_by_token', true);
-  userDataRequest.setRequestHeader('Authorization', token);
+  userDataRequest.setRequestHeader('Authorization', hash);
   userDataRequest.onreadystatechange = function() {
     if (userDataRequest.readyState !== 4) {
       return;
@@ -301,7 +310,7 @@ function homeTabClicked() {
       // When user data request is successful, send user wall messages request
       let userMessagesRequest = new XMLHttpRequest();
       userMessagesRequest.open('GET', '/message/get', true);
-      userMessagesRequest.setRequestHeader('Authorization', token);
+      userMessagesRequest.setRequestHeader('Authorization', hash);
       userMessagesRequest.onreadystatechange = function() {
         if (userMessagesRequest.readyState !== 4) {
           return;
@@ -322,12 +331,12 @@ function homeTabClicked() {
           showErrors(["Something went wrong."]);
         }
       }
-      userMessagesRequest.send();
+      userMessagesRequest.send(message);
     } else {
       showErrors(["Something went wrong."]);
     }
   }
-  userDataRequest.send();
+  userDataRequest.send(message);
 }
 
 function tabClicked(name){
@@ -393,30 +402,39 @@ function postButtonClicked() {
   let author = localStorage.getItem("viewedUserEmail");
 
   let newPostTextArea = inHomePanel ? "newPostTextAreaHome" : "newPostTextAreaBrowse";
-  let message = document.getElementById(newPostTextArea).value;
+  let messageText = document.getElementById(newPostTextArea).value;
 
   let postMessageDto = {
     "author" : author,
     "owner" : owner,
-    "message" : message
+    "message" : messageText
   };
 
   let token = localStorage.getItem("token");
 
-  if (message.length == 0){
+  if (messageText.length == 0){
     showErrors(["Empty posts not allowed!"]);
     return;
   }
 
-  if (message.length > 1000) {
+  if (messageText.length > 1000) {
     showErrors(["Posts logner then 1000 characters not allowed!"]);
     return;
   }
 
+  let message = JSON.stringify({
+    "public_key": localStorage.getItem("viewedUserEmail"),
+    "method" : "POST",
+    "URL" : "/message/post",
+    "data" : postMessageDto
+  });
+
+  let hash = CryptoJS.hmacSHA512(message, token);
+
   let request = new XMLHttpRequest();
   request.open('POST', '/message/post', true);
   request.setRequestHeader('Content-Type', 'application/json;encoding=utf-8');
-  request.setRequestHeader('Authorization', token);
+  request.setRequestHeader('Authorization', hash);
   request.onreadystatechange = function() {
     if (request.readyState !== 4) {
       return;
@@ -436,7 +454,7 @@ function postButtonClicked() {
       showErrors(["Something went wrong."]);
     }
   }
-  request.send(JSON.stringify(postMessageDto));
+  request.send(message);
 }
 
 // Browse Panel functions
@@ -446,8 +464,17 @@ function searchUser(form){
 
   // First send user data request
   let userDataRequest = new XMLHttpRequest();
+
+  let message = JSON.stringify({
+    "public_key": localStorage.getItem("viewedUserEmail"),
+    "method": " GET",
+    "URL": "/get_user_data/" + email
+  });
+
+  let hash = CryptoJS.hmacSHA512(message, token);
+
   userDataRequest.open('GET', '/get_user_data/' + email, true);
-  userDataRequest.setRequestHeader('Authorization', token);
+  userDataRequest.setRequestHeader('Authorization', hash);
   userDataRequest.onreadystatechange = function() {
     if (userDataRequest.readyState !== 4) {
       return;
@@ -465,8 +492,13 @@ function searchUser(form){
 
       // When user data request is successful, send user wall messages request
       let userMessagesRequest = new XMLHttpRequest();
+      let message = JSON.stringify({
+        "public_key" : localStorage.getItem("viewedUserEmail"),
+        "method" : " GET",
+        "URL" : "/message/get/" + email
+      });
       userMessagesRequest.open('GET', '/message/get/' + email, true);
-      userMessagesRequest.setRequestHeader('Authorization', token);
+      userMessagesRequest.setRequestHeader('Authorization', hash);
       userMessagesRequest.onreadystatechange = function() {
         if (userMessagesRequest.readyState !== 4) {
           return;
@@ -491,12 +523,12 @@ function searchUser(form){
           showErrors(["Something went wrong."]);
         }
       }
-      userMessagesRequest.send();
+      userMessagesRequest.send(message);
     } else {
       showErrors(["Something went wrong."]);
     }
   }
-  userDataRequest.send();
+  userDataRequest.send(message);
 }
 
 function loadUserViewToBrowsePanel(userData, userMessages) {
@@ -553,10 +585,6 @@ function refreshWallButtonClicked() {
 function submitChangePasswordForm(form) {
   document.getElementById("messagePasswordChange").innerHTML = "";
 
-  let changePasswordDto = {
-    "old_password": form.oldPassword.value,
-    "new_password": form.newPassword.value
-  }
 
   if (!validateFormAndShowErrors(form)) {
     return;
@@ -565,8 +593,21 @@ function submitChangePasswordForm(form) {
   let token = localStorage.getItem("token");
 
   let request = new XMLHttpRequest();
+
+  let changePasswordDto = JSON.stringify({
+    "public_key": localStorage.getItem("viewedUserEmail"),
+    "method": "PUT",
+    "URL": "/change_password",
+    "data": {
+        "old_password": form.oldPassword.value,
+        "new_password": form.newPassword.value
+    }
+  });
+
+  let hash = CryptoJS.hmacSHA512(message, token);
+
   request.open("PUT", "/change_password", true);
-  request.setRequestHeader("Authorization", token);
+  request.setRequestHeader("Authorization", hash);
   request.setRequestHeader("Content-Type", "application/json;encoding=UTF-8");
 
   request.onreadystatechange = function(){
@@ -591,14 +632,23 @@ function submitChangePasswordForm(form) {
     }
   }
 
-  request.send(JSON.stringify(changePasswordDto))
+  request.send(changePasswordDto)
 }
 
 function submitSignOut() {
   let token = localStorage.getItem("token");
   let request = new XMLHttpRequest();
+
+  let message = JSON.stringify({
+    "public_key": localStorage.getItem("viewedUserEmail"),
+    "method": "DELETE",
+    "URL": "/sign_out"
+  });
+
+  let hash = CryptoJS.hmacSHA512(message, token);
+
   request.open("DELETE", "/sign_out", true);
-  request.setRequestHeader("Authorization", token);
+  request.setRequestHeader("Authorization", hash);
   request.onreadystatechange = function(){
     if (request.readyState !== 4 ) {
       return;
@@ -615,7 +665,7 @@ function submitSignOut() {
       showErrors(["Something went wrong."]);
     }
   }
-  request.send();
+  request.send(message);
 }
 
 

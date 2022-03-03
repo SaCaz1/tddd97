@@ -12,6 +12,8 @@ import database_helper
 from database_helper import DatabaseErrorCode
 import utils
 
+import hmac
+import hashlib
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -201,12 +203,25 @@ def sign_out():
 
     return "{}", 200 #OK
 
+def check_signature(public_key, incoming_signature, message):
+    token = database_helper.read_logged_in_user(public_key)
+    signature = hmac.new(bytes(token , 'utf-8'), msg = bytes(message , 'utf-8'), digestmod = hashlib.sha256).hexdigest().upper()
+
+    return signature == incoming_signature
+
 @app.route('/change_password', methods=["PUT"])
 def change_password():
     json = request.get_json()
     headers = request.headers
 
     if "Authorization" not in headers:
+        return "{}", 401 #Unauthenticated
+
+    if "public_key" not in json:
+        return "{}", 400 #Bad request
+
+    incoming_signature = headers["Authorization"]
+    if not check_signature(json["public_key"], incoming_signature, request.data):
         return "{}", 401 #Unauthenticated
 
     if  "old_password" not in json or "new_password" not in json:
