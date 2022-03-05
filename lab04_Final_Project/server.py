@@ -84,38 +84,38 @@ def redirect_authorized_to_home():
         return result
 
     response = redirect('/')
-    response.set_cookie('session_token', token, max_age=50)
-    response.set_cookie('authorized_user', email, max_age=50)
+    response.set_cookie('session_token', token, max_age=5)
+    response.set_cookie('authorized_user', email, max_age=5)
     return response
 
 def google_sign_in(email, token):
-    old_session = database_helper.read_logged_in_user(email)
-    result = database_helper.create_logged_in_user(email, token)
+    old_sessions = database_helper.read_all_user_sessions(email)
 
-    if result != DatabaseErrorCode.Success:
+    if database_helper.create_logged_in_user(email, token) != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
 
-    if old_session:
-        if database_helper.delete_logged_in_user(old_session.username, old_session.token) != DatabaseErrorCode.Success:
-            return "{}", 500 #Internal Server Error
+    if old_sessions:
+        for old_session in old_sessions:
+            send_autologout(old_session.token)
 
-        send_autologout(old_session.token)
+            if database_helper.delete_logged_in_user(old_session.username, old_session.token) != DatabaseErrorCode.Success:
+                return "{}", 500 #Internal Server Error
 
 def google_sign_up(user_info_dto, token):
-        user_info = {
-            "email": user_info_dto["email"],
-            "password": None,
-            "first_name": user_info_dto["given_name"],
-            "family_name": user_info_dto["family_name"],
-            "gender": None,
-            "city": None,
-            "country": None
-        }
-        database_helper.create_user(user_info)
-        result = database_helper.create_logged_in_user(user_info_dto["email"], token)
+    user_info = {
+        "email": user_info_dto["email"],
+        "password": None,
+        "first_name": user_info_dto["given_name"],
+        "family_name": user_info_dto["family_name"],
+        "gender": None,
+        "city": None,
+        "country": None
+    }
+    if database_helper.create_user(user_info) != DatabaseErrorCode.Success:
+        return "{}", 500 #Internal Server Error
 
-        if result != DatabaseErrorCode.Success:
-            return "{}", 500 #Internal Server Error
+    if database_helper.create_logged_in_user(user_info_dto["email"], token) != DatabaseErrorCode.Success:
+        return "{}", 500 #Internal Server Error
 
 
 @app.route('/sign_in', methods=['POST'])

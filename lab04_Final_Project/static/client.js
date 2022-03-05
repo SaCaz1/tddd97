@@ -1,15 +1,19 @@
+window.onload = function() {
+  localStorage.removeItem('profileViewLoaded');
+  loadLocalStorage();
+}
+
+window.onunload = () => {
+  localStorage.removeItem('profileViewLoaded');
+}
+
 page('/', function() {
   localStorage.removeItem('profileViewLoaded');
-  
-  if (getCookie('authorized_user') != null) {
-    localStorage.setItem('loggedInUserEmail', getCookie('authorized_user') );
-  }
+  loadLocalStorage();
 
   if (userLoggedIn()) {
-    webSocketDisconnection();
-    webSocketConnection(() => {
-      page.redirect('/home');
-    });
+    connectWebsocket();
+    page.redirect('/home');
   } else {
     page.redirect('/welcome');
   }
@@ -31,7 +35,6 @@ page('/home', function() {
 });
 
 page('/welcome', function() {
-  webSocketDisconnection(); //disconnect any websockets that could still be connected
   let pageContent = document.getElementById("pageContent");
   let content = document.getElementById("welcomeView").innerHTML;
   pageContent.innerHTML = content;
@@ -73,13 +76,7 @@ page('*', function(){
 });
 
 function loadPage() {
-  webSocketDisconnection();
   page.redirect('/');
-}
-
-window.onunload = () => {
-  localStorage.removeItem('profileViewLoaded');
-  webSocketDisconnection();
 }
 
 function userLoggedIn() {
@@ -87,16 +84,7 @@ function userLoggedIn() {
     console.log("Token in local storage");
     return true;
   } else {
-    token = getCookie('session_token');
-
-    if (token != null) {
-      console.log("Token in cookie");
-      localStorage.setItem('token', token);
-      return true;
-    } else {
-      console.log("Token not provided");
-      return false;
-    }
+    return false;
   }
 }
 
@@ -116,68 +104,44 @@ function getCookie(name) {
   return cookie;
 }
 
-// GENERAL FUCTIONS
-let connection = null;
-function webSocketDisconnection(){
-  if (connection != null) {
-    try {
-      connection.disconnect();
-    }
-    catch (error) {
-      console.log(error);
-    }
-  }
-}
-
-function webSocketConnection(success_callback) {
-  connection = io("ws://" + window.location.hostname + ":5000/autologout", {
+function connectWebsocket() {
+  let socket = io("ws://" + window.location.hostname + ":5000/autologout", {
     auth: {
       token : localStorage.getItem("token")
     }
-  }); //arguments in SocketIo events are automatically encoded in JSON
-
-  connection.on('connect', () => {
-    success_callback()
-    console.log("ws connection established.")
-  }); //or setting a cookie?
-
-  connection.on("reconnect", (attempt) => {  
-    connection.disconnect();
   });
 
-  let log_out = (message, time) => {
-    if (localStorage.getItem("token") !== null) {
-      showErrors([message])
-    }
-    localStorage.removeItem("token")
-    setTimeout(function(){
-      loadPage();
-    }, time);
-  }
+  socket.on("autologout", () => {
+    showErrors(["Log in to your account from another browser took place. You will be logged out."]);
 
-  connection.on("connect_error", (error) => {
-    console.log(error);
-    message = "autologout feature error.";
-    log_out(message, 3000);
+    localStorage.removeItem('token');
+    localStorage.removeItem('loggedInUserEmail');
+    loadPage();
   });
 
-  connection.on("autologout", () => {
-    console.log("autologout message");
-    message = "Log in to your account from another browser took place. You will be logged out.";
-    log_out(message, 3000);
+  socket.on("connect_error", (error) => {
+    showErrors(["Auto Logout feature could not be enabled."]);
   });
 
-
-  connection.on("disconnect", (reason) => {
-    console.log("web socket closed: " + reason);
-    connection = null;
-
-    if (reason != "io client disconnect") { //connection ended from server side
-      message = "Network communication problems. Please log in again.";
-      log_out(message, 100);
-      }
+  socket.on("disconnect", (reason) => {
+    showErrors(["Auto Logout feature might not work."]);
   });
 }
+
+function loadLocalStorage() {
+  let user = getCookie('authorized_user');
+  let token = getCookie('session_token');
+
+  if (user != null) {
+    localStorage.setItem('loggedInUserEmail', user);
+  }
+
+  if (token != null) {
+    localStorage.setItem('token', token);
+  }
+}
+
+// GENERAL FUCTIONS
 
 function showErrors(errorMessages){
   errorMessageBlock = document.getElementById("errorMessage");
@@ -281,7 +245,6 @@ async function signIn(username, password){
 }
 
 function externalSignIn(provider) {
-  webSocketDisconnection();
   window.location.replace("/auth/" + provider);
 }
 
@@ -613,7 +576,6 @@ async function submitSignOut() {
 
   localStorage.removeItem('token');
   localStorage.removeItem('loggedInUserEmail');
-  webSocketDisconnection();
   loadPage();
 }
 
