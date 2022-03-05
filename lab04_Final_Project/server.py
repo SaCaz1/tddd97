@@ -6,7 +6,6 @@ from flask_dance.contrib.google import make_google_blueprint, google
 from flask_dance.consumer import oauth_authorized
 from flask_bcrypt import Bcrypt
 import secrets
-import json
 import os
 import database_helper
 from database_helper import DatabaseErrorCode
@@ -21,13 +20,17 @@ bcrypt = Bcrypt(app)
 
 app.debug = True
 
-app.secret_key = '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' #os.environ.get("FLASK_SECRET_KEY", "supersekrit")
-app.config["GOOGLE_OAUTH_CLIENT_ID"] =  '1019540628960-bgkqval4a7iceas5tattfc65v8ju2icc.apps.googleusercontent.com'#os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
-app.config["GOOGLE_OAUTH_CLIENT_SECRET"] = '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' #os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "supersekrit")
+app.config["GOOGLE_OAUTH_CLIENT_ID"] = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
+app.config["GOOGLE_OAUTH_CLIENT_SECRET"] = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-app.config["SESSION_REFRESH_EACH_REQUEST"] = False
-google_bp = make_google_blueprint(scope=["openid", "https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"])
-app.register_blueprint(google_bp, url_prefix="/auth")
+
+google_bp = make_google_blueprint(scope=["openid", "https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"], offline=True)
+app.register_blueprint(google_bp, url_prefix="/login")
+
+@app.teardown_request
+def after_request(exception):
+    database_helper.close_session()
 
 @socketio.on("connect", namespace='/autologout')
 def connection_open(auth):
@@ -38,53 +41,51 @@ def connection_open(auth):
 def send_autologout(token):
     emit("autologout", to=token, namespace='/autologout')
 
-
 @app.route("/", methods = ["GET"])
 def root():
-    response = app.send_static_file("client.html")
-    # response.delete_cookie('session_token')
-    return response
+    return app.send_static_file("client.html")
 
-
+@app.route("/welcome", methods = ["GET"])
 @app.route("/home", methods = ["GET"])
 @app.route("/browse", methods = ["GET"])
 @app.route("/account", methods = ["GET"])
 def alt_root():
-    response = app.send_static_file("client.html")
-    # response.delete_cookie('session_token')
-    return response
-
-
-@app.route("/welcome", methods = ["GET"])
-def welcome_root():
     return redirect("/")
 
-
-@app.teardown_request
-def after_request(exception):
-    database_helper.close_session();
-
-@google_bp.route("/google", methods=["GET", "POST"])
+@app.route("/auth/google", methods=["GET"])
 def google_login():
-    return redirect(url_for("auth.google"))
+    if not google.authorized:
+        return redirect(url_for("google.login"))
+
+    try:
+        return redirect_authorized_to_home()
+    except:
+        return redirect(url_for("google.login"))
 
 @oauth_authorized.connect
-def redirect_to_home(bluepring, token):
-    # retrieve email address
-    # if account is created - go to / with newly generated sesison token
-    # if not - create user account and go to / with newly generated sesion token
+def redirect_to_app(blueprint, token):
+    try:
+        return redirect_authorized_to_home()
+    except:
+        return redirect('/')
+
+def redirect_authorized_to_home():
     resp = google.get("/oauth2/v1/userinfo")
     user_info_dto = resp.json()
     token = utils.generate_token()
+    email = user_info_dto["email"]
 
-    if database_helper.read_user(user_info_dto["email"]):
-        google_sign_in(user_info_dto["email"], token)
-
+    if database_helper.read_user(email):
+        result = google_sign_in(email, token)
     else:
-        google_sign_up(user_info_dto, token)
+        result = google_sign_up(user_info_dto, token)
+
+    if result:
+        return result
 
     response = redirect('/')
-    response.set_cookie('session_token', token)
+    response.set_cookie('session_token', token, max_age=50)
+    response.set_cookie('authorized_user', email, max_age=50)
     return response
 
 def google_sign_in(email, token):
@@ -136,7 +137,7 @@ def sign_in():
     if not validate_password(user.password, json["password"]):
         return "{}", 401 # Unauthenticated, wrong password
 
-    old_session = database_helper.read_logged_in_user(json['username'])
+    old_sessions = database_helper.read_all_user_sessions(json['username'])
 
     token = utils.generate_token()
     result = database_helper.create_logged_in_user(json["username"], token)
@@ -145,11 +146,12 @@ def sign_in():
         return "{}", 500 #Internal Server Error
 
 
-    if old_session:
-        if database_helper.delete_logged_in_user(old_session.username, old_session.token) != DatabaseErrorCode.Success:
-            return "{}", 500 #Internal Server Error
+    if old_sessions:
+        for old_session in old_sessions:
+            send_autologout(old_session.token)
 
-        send_autologout(old_session.token)
+            if database_helper.delete_logged_in_user(old_session.username, old_session.token) != DatabaseErrorCode.Success:
+                return "{}", 500 #Internal Server Error
 
     response_body = {"token" : token}
 
@@ -188,72 +190,47 @@ def sign_up():
 
 @app.route('/sign_out', methods=['DELETE'])
 def sign_out():
-    headers = request.headers
-    if "Authorization" not in headers:
-        return "{}", 401 #Unauthenticated
+    check_signature_result = check_signature()
+    if check_signature_result:
+        return check_signature_result
 
-    token = headers["Authorization"]
-    user = database_helper.read_user_by_token(token)
+    user_email = request.headers['Public-Key']
+    token = database_helper.read_logged_in_user(user_email).token
 
-    if user is None:
-        return "{}", 401 # Unauthorized
-
-    if database_helper.delete_logged_in_user(user.email, token) != DatabaseErrorCode.Success:
+    if database_helper.delete_logged_in_user(user_email, token) != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
 
     return "{}", 200 #OK
 
-def check_signature(public_key, incoming_signature, message):
-    token = database_helper.read_logged_in_user(public_key)
-    signature = hmac.new(bytes(token , 'utf-8'), msg = bytes(message , 'utf-8'), digestmod = hashlib.sha256).hexdigest().upper()
-
-    return signature == incoming_signature
-
 @app.route('/change_password', methods=["PUT"])
 def change_password():
+    check_signature_result = check_signature()
+    if check_signature_result:
+        return check_signature_result
+
     json = request.get_json()
-    headers = request.headers
-
-    if "Authorization" not in headers:
-        return "{}", 401 #Unauthenticated
-
-    if "public_key" not in json:
-        return "{}", 400 #Bad request
-
-    incoming_signature = headers["Authorization"]
-    if not check_signature(json["public_key"], incoming_signature, request.data):
-        return "{}", 401 #Unauthenticated
-
-    if  "old_password" not in json or "new_password" not in json:
+    if  "old_password" not in json["data"] or "new_password" not in json["data"]:
         return "{}", 400 #Bad Request
 
-    user = database_helper.read_user_by_token(headers["Authorization"])
+    user = database_helper.read_user(json["public_key"])
 
-    if not validate_password(user.password, json["old_password"]):
+    if not validate_password(user.password, json["data"]["old_password"]):
         return "{}", 401 # Unauthenticated, wrong password
 
-    if user is None:
-        return "{}", 401 # Unauthorized, user not connected
-
-    if database_helper.update_user_password(user.email, generate_secure_password(json["new_password"])) != DatabaseErrorCode.Success:
+    if database_helper.update_user_password(user.email, generate_secure_password(json["data"]["new_password"])) != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
 
     return "{}", 200 # OK
 
-@app.route('/get_user_data_by_token', methods=['GET'])
-def get_user_data_by_token():
-    headers = request.headers
+@app.route('/get_user_data', methods=['GET', 'POST'])
+def get_user_data():
+    check_signature_result = check_signature()
+    if check_signature_result:
+        return check_signature_result
 
-    if "Authorization" not in headers:
-        return "{}", 401 #Unauthorized
+    user = database_helper.read_user(request.headers['Public-Key'])
 
-    token = headers.get("Authorization")
-    user = database_helper.read_user_by_token(token)
-
-    if user is None:
-        return "{}", 401 #Unauthorized, user not connected
-
-    user_info = {
+    user_dto = {
         "email": user.email,
         "first_name": user.first_name,
         "family_name": user.family_name,
@@ -262,68 +239,49 @@ def get_user_data_by_token():
         "country": user.country
     }
 
-    return jsonify(user_info), 200 #OK
+    return jsonify(user_dto), 200 #OK
 
 
 @app.route('/get_user_data/<email>', methods=['GET'])
 def get_user_data_by_email(email):
-    headers = request.headers
-
-    if "Authorization" not in headers:
-        return "{}", 401 #Unauthenticated
-
-    token = headers.get("Authorization")
-
-    if database_helper.read_user_by_token(token) is None:
-        return "{}", 401 #Unauthorized, user not connected
+    check_signature_result = check_signature()
+    if check_signature_result:
+        return check_signature_result
 
     user = database_helper.read_user(email)
 
     if user is None:
         return "{}", 404 #Not Found
-    else:
-        user_info = {
-            "email": user.email,
-            "first_name": user.first_name,
-            "family_name": user.family_name,
-            "gender": user.gender,
-            "city": user.city,
-            "country": user.country
-        }
 
-        return jsonify(user_info), 200 #Success
+    user_dto = {
+        "email": user.email,
+        "first_name": user.first_name,
+        "family_name": user.family_name,
+        "gender": user.gender,
+        "city": user.city,
+        "country": user.country
+    }
+
+    return jsonify(user_dto), 200 #Success
 
 
 @app.route('/message/get', methods=['GET'])
 def get_user_messages_by_token():
-    headers = request.headers
+    check_signature_result = check_signature()
+    if check_signature_result:
+        return check_signature_result
 
-    if "Authorization" not in headers:
-        return "{}", 401 #Unauthenticated
+    email = request.headers["Public-Key"]
+    messages = database_helper.read_message(email)
 
-    token = headers.get("Authorization")
-
-    user = database_helper.read_user_by_token(token)
-    if user is None:
-        return "{}", 401 #Unauthorized, user not connected
-
-    result = database_helper.read_message(user.email)
-
-    return jsonify_messages(reversed(result)), 200 #OK
+    return jsonify_messages(reversed(messages)), 200 #OK
 
 
 @app.route('/message/get/<email>', methods=['GET'])
 def get_user_messages_by_email(email):
-    headers = request.headers
-
-    if "Authorization" not in headers:
-        return "{}", 401 #Unauthenticated
-
-    token = headers.get("Authorization")
-    user = database_helper.read_user_by_token(token)
-
-    if user is None:
-        return "{}", 401 #Unauthorized, user not connected
+    check_signature_result = check_signature()
+    if check_signature_result:
+        return check_signature_result
 
     if database_helper.read_user(email) is None:
         return "{}", 404 #Not Found
@@ -341,21 +299,17 @@ def jsonify_messages(messages_result):
 
 @app.route('/message/post', methods=['POST'])
 def post_message():
-    headers = request.headers
-    if "Authorization" not in headers:
-        return "{}", 401 #Unauthenticated
+    check_signature_result = check_signature()
+    if check_signature_result:
+        return check_signature_result
 
-    if database_helper.read_user_by_token(headers["Authorization"]) is None:
-        return "{}", 401 # Unauthorized
-
-
-    json = request.get_json()
-    if "owner" not in json or "message" not in json or "author" not in json:
+    message_data = request.get_json()["data"]
+    if "owner" not in message_data or "message" not in message_data or "author" not in message_data:
         return "{}", 400 #Bad Request
 
-    result = database_helper.create_message(json)
+    result = database_helper.create_message(message_data)
 
-    if result is DatabaseErrorCode.IntegrityError or len(json["message"]) > 1000:
+    if result is DatabaseErrorCode.IntegrityError or len(message_data["message"]) > 1000:
         return "{}", 400   #Bad request, owner/author not valid or over caracter limits
 
     if result is not DatabaseErrorCode.Success:
@@ -376,6 +330,39 @@ def validate_password(psw_stored, psw_to_validate):
     print(salt)
     return bcrypt.check_password_hash(psw_hashed, psw_to_validate + salt)
 
+def check_signature():
+    headers = request.headers
+    if "Authorization" not in headers:
+        return "{}", 401 #Unauthenticated
+
+    incoming_signature = headers["Authorization"]
+
+    if request.method in ['GET', 'DELETE']:
+        if 'Public-Key' not in headers:
+            return '{}', 400 #Bad Request
+        public_key = headers['Public-Key']
+    else:
+        if "public_key" not in request.json:
+            return "{}", 400 #Bad Request TODO: check if valid status code
+        public_key = request.json["public_key"]
+
+    user_session = database_helper.read_logged_in_user(public_key)
+    if user_session is None:
+        return "{}", 401 #Unauthenticated
+
+    if request.method in ['GET', 'DELETE']:
+        message = public_key + user_session.token + request.method + request.path
+    else:
+        message = request.data.decode("utf-8") + user_session.token
+
+    private_key = bytes(user_session.token , 'utf-8')
+    message = bytes(message, 'utf-8')
+    local_signature = hmac.new(private_key, msg = message, digestmod = hashlib.sha256).hexdigest()
+
+    if local_signature != incoming_signature:
+        return "{}", 401 #Unauthenticated
+
+    return None
 
 if __name__ == '__main__':
     http_server = WSGIServer(('0.0.0.0', 5000), app, handler_class=WebSocketHandler)

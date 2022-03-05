@@ -111,7 +111,7 @@ def read_logged_in_user(email):
 
 def read_all_user_sessions(email):
     session = get_session()
-    results = session.query(LoggedInUser).filter(LoggedInUser.username == email)
+    results = session.query(LoggedInUser).filter(LoggedInUser.username == email).all()
     return results
 
 def delete_logged_in_user(email, token):
