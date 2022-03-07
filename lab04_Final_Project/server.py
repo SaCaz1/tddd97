@@ -64,6 +64,7 @@ def google_login():
 
 @oauth_authorized.connect
 def redirect_to_app(blueprint, token):
+    blueprint.token = token
     try:
         return redirect_authorized_to_home()
     except:
@@ -199,6 +200,15 @@ def sign_out():
 
     if database_helper.delete_logged_in_user(user_email, token) != DatabaseErrorCode.Success:
         return "{}", 500 #Internal Server Error
+
+    if google.authorized:
+        google_token = google_bp.token["access_token"]
+
+        _ = google.post(
+            "https://accounts.google.com/o/oauth2/revoke",
+            params={"token": google_token},
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
+        )
 
     return "{}", 200 #OK
 
