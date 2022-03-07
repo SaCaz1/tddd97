@@ -28,7 +28,7 @@ page('/home', function() {
     let pageContent = document.getElementById("pageContent");
     let content = document.getElementById("profileView").innerHTML;
     pageContent.innerHTML = content;
-    
+
     localStorage.setItem('profileViewLoaded', JSON.stringify(true));
   }
   homeTabClicked();
@@ -49,7 +49,7 @@ page('/browse', function() {
     let pageContent = document.getElementById("pageContent");
     let content = document.getElementById("profileView").innerHTML;
     pageContent.innerHTML = content;
-    
+
     localStorage.setItem('profileViewLoaded', JSON.stringify(true));
   }
   tabClicked('browse');
@@ -64,7 +64,7 @@ page('/account', function() {
     let pageContent = document.getElementById("pageContent");
     let content = document.getElementById("profileView").innerHTML;
     pageContent.innerHTML = content;
-    
+
     localStorage.setItem('profileViewLoaded', JSON.stringify(true));
   }
   tabClicked('account');
@@ -94,7 +94,7 @@ function getCookie(name) {
 
   if (parts.length !== 2){
     return null;
-  } 
+  }
   let cookie = parts.pop().split(';').shift();
 
   if (name === 'authorized_user' && cookie.startsWith('\"')) {
@@ -104,10 +104,15 @@ function getCookie(name) {
   return cookie;
 }
 
-function connectWebsocket() {
+async function connectWebsocket() {
+  let token = localStorage.getItem("token");
+  let email = localStorage.getItem("loggedInUserEmail");
+  let hash = await sign_crypto(email + token, token);
+
   let socket = io("ws://" + window.location.hostname + ":5000/autologout", {
     auth: {
-      token : localStorage.getItem("token")
+      token : hash,
+      public_key: email
     }
   });
 
@@ -223,7 +228,7 @@ async function signIn(username, password){
     method : 'POST',
     headers: {
       'Content-Type': 'application/json;charset=utf-8'
-    }, 
+    },
     body: JSON.stringify(signInDto)
   });
 
@@ -262,7 +267,7 @@ async function homeTabClicked() {
       'Public-Key': public_key
     }
   });
-  
+
   if (!userDataResponse.ok) {
     showErrors(["Something went wrong. Please log in again"]);
     localStorage.removeItem('token');
@@ -286,7 +291,7 @@ async function homeTabClicked() {
 
   let userData = await userDataResponse.json();
   let userMessages = await userMessagesResponse.json();
-  
+
   tabClicked("home");
   loadUserViewToHomePanel(userData, userMessages);
 }
@@ -388,7 +393,7 @@ async function postButtonClicked() {
     headers: {
       'Authorization': hash,
       'Content-Type': 'application/json;charset=utf-8'
-    }, 
+    },
     body: message
   });
 
@@ -450,7 +455,7 @@ async function searchUser(form){
       showErrors(["User not found."]);
       return;
     }
-    
+
     showErrors(["Something went wrong. Please log in again"]);
     localStorage.removeItem('token');
     loadPage();
@@ -533,12 +538,12 @@ async function submitChangePasswordForm(form) {
 
   let hach = sign_crypto(message + token, token);
 
-  let response = await fetch('/change_password', { 
+  let response = await fetch('/change_password', {
     method: 'PUT',
     headers: {
       'Authorization': hush,
       'Content-Type': 'application/json;charset=utf-8'
-    }, 
+    },
     body: message
   });
 

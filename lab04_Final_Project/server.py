@@ -34,9 +34,11 @@ def after_request(exception):
 
 @socketio.on("connect", namespace='/autologout')
 def connection_open(auth):
-    if not auth or not 'token' in auth or database_helper.read_user_by_token(auth["token"]) is None:
+    if not auth or not 'token' in auth or not 'public_key' in auth or not check_signature_websocket(auth["token"], auth["public_key"]):
         raise ConnectionRefusedError("unauthenticated")
-    join_room(auth["token"])
+
+    token = database_helper.read_logged_in_user(auth["public_key"]).token
+    join_room(token)
 
 def send_autologout(token):
     emit("autologout", to=token, namespace='/autologout')
@@ -373,6 +375,19 @@ def check_signature():
         return "{}", 401 #Unauthenticated
 
     return None
+
+def check_signature_websocket(incoming_signature, public_key):
+    user_session = database_helper.read_logged_in_user(public_key)
+    if user_session is None:
+        False
+
+    message = public_key + user_session.token
+
+    private_key = bytes(user_session.token , 'utf-8')
+    message = bytes(message, 'utf-8')
+    local_signature = hmac.new(private_key, msg = message, digestmod = hashlib.sha256).hexdigest()
+
+    return (local_signature == incoming_signature)
 
 if __name__ == '__main__':
     http_server = WSGIServer(('0.0.0.0', 5000), app, handler_class=WebSocketHandler)
