@@ -1,6 +1,8 @@
 window.onload = function() {
   localStorage.removeItem('profileViewLoaded');
   loadLocalStorage();
+
+  page.start();
 }
 
 window.onunload = () => {
@@ -599,5 +601,3 @@ async function sign_crypto(message, key) {
 
   return lower_hex;
 }
-
-page.start();

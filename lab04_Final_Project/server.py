@@ -42,15 +42,12 @@ def send_autologout(token):
     emit("autologout", to=token, namespace='/autologout')
 
 @app.route("/", methods = ["GET"])
-def root():
-    return app.send_static_file("client.html")
-
 @app.route("/welcome", methods = ["GET"])
 @app.route("/home", methods = ["GET"])
 @app.route("/browse", methods = ["GET"])
 @app.route("/account", methods = ["GET"])
-def alt_root():
-    return redirect("/")
+def serve_app():
+    return app.send_static_file("client.html")
 
 @app.route("/auth/google", methods=["GET"])
 def google_login():
