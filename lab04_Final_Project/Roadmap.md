@@ -1,7 +1,7 @@
 # CORE
-- [ ] Performing Client-side Routing + Overriding Back/Forward buttons using the History API [2 point]
-- [ ] Third-Party Authentication Using OpenID/OAuth 2.0 [3 point]
-- [ ] Applying Further Security Measures [3 points]
+- [x] Performing Client-side Routing + Overriding Back/Forward buttons using the History API [2 point]
+- [x] Third-Party Authentication Using OpenID/OAuth 2.0 [3 point]
+- [x] Applying Further Security Measures [3 points]
 
 <br>
 
