@@ -1,16 +1,16 @@
 window.onload = function() {
-  localStorage.removeItem('profileViewLoaded');
+  clearLocalStorage();
   loadLocalStorage();
 
   page.start();
 }
 
 window.onunload = () => {
-  localStorage.removeItem('profileViewLoaded');
+  clearLocalStorage();
 }
 
 page('/', function() {
-  localStorage.removeItem('profileViewLoaded');
+  clearLocalStorage();
   loadLocalStorage();
 
   if (userLoggedIn()) {
@@ -69,6 +69,14 @@ page('/account', function() {
 
     localStorage.setItem('profileViewLoaded', JSON.stringify(true));
   }
+
+  let passwordChange = document.getElementById("passwordChange");
+  if (localStorage.getItem('isOAuthUser') !== null) {
+    passwordChange.classList.add("disabledDiv");
+  } else {
+    passwordChange.classList.remove("disabledDiv");
+  }
+
   tabClicked('account');
 });
 
@@ -121,13 +129,12 @@ async function connectWebsocket() {
   socket.on("autologout", () => {
     showErrors(["Log in to your account from another browser took place. You will be logged out."]);
 
-    localStorage.removeItem('token');
-    localStorage.removeItem('loggedInUserEmail');
+    clearLocalStorage(clearToken=true);
     loadPage();
   });
 
   socket.on("connect_error", (error) => {
-    showErrors(["Auto Logout feature could not be enabled."]);
+    showErrors(["Auto Logout feature coeuld not be enabled."]);
   });
 
   socket.on("disconnect", (reason) => {
@@ -141,10 +148,20 @@ function loadLocalStorage() {
 
   if (user != null) {
     localStorage.setItem('loggedInUserEmail', user);
+    localStorage.setItem('isOAuthUser', JSON.stringify(true));
   }
 
   if (token != null) {
     localStorage.setItem('token', token);
+  }
+}
+
+function clearLocalStorage(clearToken=false) {
+  localStorage.removeItem('profileViewLoaded');
+  localStorage.removeItem('isOAuthUser');
+
+  if (clearToken) {
+    localStorage.removeItem('token');
   }
 }
 
@@ -272,7 +289,7 @@ async function homeTabClicked() {
 
   if (!userDataResponse.ok) {
     showErrors(["Something went wrong. Please log in again"]);
-    localStorage.removeItem('token');
+    clearLocalStorage(clearToken=true);
     loadPage();
   }
 
@@ -287,7 +304,7 @@ async function homeTabClicked() {
 
   if (!userMessagesResponse.ok) {
     showErrors(["Something went wrong. Please log in again"]);
-    localStorage.removeItem('token');
+    clearLocalStorage(clearToken=true);
     loadPage();
   }
 
@@ -403,7 +420,7 @@ async function postButtonClicked() {
     showErrors(["Something went wrong. Check if you are logged in."]);
   } else if (response.status === 401) {
     showErrors(["Your session expired. Please log in again"]);
-    localStorage.removeItem("token");
+    clearLocalStorage(clearToken=true);
     loadPage();
   } else if (response.status === 500) {
     showErrors(["Something went wrong."]);
@@ -438,7 +455,7 @@ async function searchUser(form){
     }
 
     showErrors(["Something went wrong. Please log in again"]);
-    localStorage.removeItem('token');
+    clearLocalStorage(clearToken=true);
     loadPage();
   }
 
@@ -459,7 +476,7 @@ async function searchUser(form){
     }
 
     showErrors(["Something went wrong. Please log in again"]);
-    localStorage.removeItem('token');
+    clearLocalStorage(clearToken=true);
     loadPage();
   }
 
@@ -510,7 +527,7 @@ async function refreshWallButtonClicked() {
     }
 
     showErrors(["Something went wrong. Please log in again"]);
-    localStorage.removeItem('token');
+    clearLocalStorage(clearToken=true);
     loadPage();
   }
 
@@ -581,8 +598,7 @@ async function submitSignOut() {
     }
   });
 
-  localStorage.removeItem('token');
-  localStorage.removeItem('loggedInUserEmail');
+  clearLocalStorage(clearToken=true);
   loadPage();
 }
 
