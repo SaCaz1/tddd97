@@ -529,7 +529,7 @@ async function submitChangePasswordForm(form) {
   let public_key = localStorage.getItem("loggedInUserEmail");
 
   let message = JSON.stringify({
-    "public_key": localStorage.getItem("loggedInUserEmail"),
+    "public_key": public_key,
     "method": "PUT",
     "URL": "/change_password",
     "data": {
@@ -538,19 +538,19 @@ async function submitChangePasswordForm(form) {
     }
   });
 
-  let hach = sign_crypto(message + token, token);
+  let hash = await sign_crypto(message + token, token);
 
   let response = await fetch('/change_password', {
     method: 'PUT',
     headers: {
-      'Authorization': hush,
+      'Authorization': hash,
       'Content-Type': 'application/json;charset=utf-8'
     },
     body: message
   });
 
   if (!response.ok) {
-    if (this.status == 401){
+    if (response.status == 401){
       showErrors(["Incorrect Password"]);
     } else {
       showErrors(["Something went wrong."]);
