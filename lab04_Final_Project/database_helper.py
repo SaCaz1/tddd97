@@ -4,7 +4,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from flask import g
 from enum import Enum
+import subprocess
 
+subprocess.call('./lab04_Final_Project/setup_database.sh')
 
 class DatabaseErrorCode(Enum):
     Success = 0

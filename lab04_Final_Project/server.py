@@ -387,5 +387,6 @@ def check_signature_websocket(incoming_signature, public_key):
     return (local_signature == incoming_signature)
 
 if __name__ == '__main__':
-    http_server = WSGIServer(('0.0.0.0', 5000), app, handler_class=WebSocketHandler)
+    port = int(os.environ.get("PORT", 5000))
+    http_server = WSGIServer(('0.0.0.0', port), app, handler_class=WebSocketHandler)
     http_server.serve_forever()
