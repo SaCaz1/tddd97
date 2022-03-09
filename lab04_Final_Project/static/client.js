@@ -214,7 +214,7 @@ async function submitSignUpForm(form) {
     headers: {
       'Content-Type': 'application/json;charset=utf-8'
     },
-    body: signUpDto
+    body: JSON.stringify(signUpDto)
   });
 
   if (response.ok) {
