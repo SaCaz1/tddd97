@@ -602,23 +602,8 @@ async function submitSignOut() {
   loadPage();
 }
 
-async function sign_crypto(message, key) {
-  const getUtf8Bytes = str =>
-    new Uint8Array(
-      [...unescape(encodeURIComponent(str))].map(c => c.charCodeAt(0))
-    );
-
-  const keyBytes = getUtf8Bytes(key);
-  const messageBytes = getUtf8Bytes(message);
-
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' },
-    true, ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', cryptoKey, messageBytes);
-
-  // to lowercase hexits
-  lower_hex = [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
-
-  return lower_hex;
+function sign_crypto(message, key) {
+  var hash = CryptoJS.HmacSHA256(message, key);
+  var hashInHex = CryptoJS.enc.Hex.stringify(hash);
+  return hashInHex;
 }
