@@ -119,7 +119,9 @@ async function connectWebsocket() {
   let email = localStorage.getItem("loggedInUserEmail");
   let hash = await sign_crypto(email + token, token);
   let port = window.location.port !== ""? ":" + window.location.port : "";
-  let socket = io("ws://" + window.location.hostname + port + "/autologout", {
+  let protocol = window.location.protocol === "https:"? "wss://" : "ws://";
+
+  let socket = io(protocol + window.location.hostname + port + "/autologout", {
     auth: {
       token : hash,
       public_key: email
