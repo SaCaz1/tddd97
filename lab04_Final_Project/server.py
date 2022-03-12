@@ -7,6 +7,7 @@ from flask_dance.consumer import oauth_authorized
 from flask_bcrypt import Bcrypt
 import secrets
 import os
+import requests
 import database_helper
 from database_helper import DatabaseErrorCode
 import utils
@@ -302,7 +303,8 @@ def get_user_messages_by_email(email):
 def jsonify_messages(messages_result):
     message_info = [{"author" : m.author,
                      "owner" : m.owner,
-                     "content" : m.message } for m in messages_result]
+                     "content" : m.message,
+                     "location" : m.location} for m in messages_result]
     return jsonify(message_info)
 
 
@@ -313,7 +315,7 @@ def post_message():
         return check_signature_result
 
     message_data = request.get_json()["data"]
-    if "owner" not in message_data or "message" not in message_data or "author" not in message_data:
+    if "owner" not in message_data or "message" not in message_data or "author" not in message_data or "location" not in message_data:
         return "{}", 400 #Bad Request
 
     result = database_helper.create_message(message_data)
@@ -326,6 +328,26 @@ def post_message():
 
     return "{}", 201    #Created
 
+@app.route('/get_user_location/<coords>', methods=['GET'])
+def get_user_location(coords):
+    check_signature_result = check_signature()
+    if check_signature_result:
+        return check_signature_result
+
+    lat, long = coords.split(',')
+    resp = requests.get("https://geocode.xyz/"+lat+","+long+"?json=1")
+    location_infos = resp.json()
+    if 'city' not in location_infos or 'country' not in location_infos:
+        return "{}", 500
+
+    location_dto = {
+        "city": location_infos['city'],
+        "country": location_infos['country']
+    }
+
+    return jsonify(location_dto), 200
+
+
 # SECURITY FUNCITONS
 
 def generate_secure_password(password):
@@ -336,7 +358,6 @@ def generate_secure_password(password):
 def validate_password(psw_stored, psw_to_validate):
     salt = psw_stored[-32:]
     psw_hashed = psw_stored[:-32]
-    print(salt)
     return bcrypt.check_password_hash(psw_hashed, psw_to_validate + salt)
 
 def check_signature():

@@ -159,6 +159,7 @@ function loadLocalStorage() {
 function clearLocalStorage(clearToken=false) {
   localStorage.removeItem('profileViewLoaded');
   localStorage.removeItem('isOAuthUser');
+  localStorage.removeItem('location');
 
   if (clearToken) {
     localStorage.removeItem('token');
@@ -214,7 +215,7 @@ async function submitSignUpForm(form) {
     headers: {
       'Content-Type': 'application/json;charset=utf-8'
     },
-    body: signUpDto
+    body: JSON.stringify(signUpDto)
   });
 
   if (response.ok) {
@@ -347,8 +348,55 @@ function loadUserViewToHomePanel(userData, userMessages) {
   document.getElementById("countryLabel").innerHTML = "Country: " + userData.country;
 
   showUserMessageWall(userMessages, "userWallHome");
+  loadUserLocation();
 }
 
+function loadUserLocation(){
+  currentLocationDiv = document.getElementById("currentLocation");
+  currentLocationLabel = document.getElementById("currentLocationLabel");
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(showCurrentLocation, showCurrentLocationError);
+    currentLocationDiv.classList.remove("disabledDiv");
+  } else {
+    currentLocationLabel.innerHTML = "Geolocation is not supported by this browser.";
+    currentLocationDiv.classList.add("disabledDiv");
+    localStorage.removeItem('location');
+  };
+}
+
+async function showCurrentLocation(position){
+  let coords = position.coords.latitude + "," + position.coords.longitude;
+
+  let token = localStorage.getItem("token");
+  let public_key = localStorage.getItem("loggedInUserEmail");
+  let hash = await sign_crypto(public_key + token + 'GET' + '/get_user_location/' + coords, token);
+
+  let response = await fetch('/get_user_location/' + coords, {
+    method: 'GET',
+    headers: {
+      'Authorization': hash,
+      'Public-Key': public_key
+    }
+  });
+
+  if (!response.ok) {
+    document.getElementById("currentLocationLabel").innerHTML = "Current location is not available.";
+    document.getElementById("currentLocation").classList.add("disabledDiv");
+    localStorage.removeItem('location');
+    return;
+  }
+  let userLocation = await response.json();
+  let userLocationText = userLocation.city + ', ' + userLocation.country;
+  document.getElementById("currentLocationLabel").innerHTML = userLocationText;
+  localStorage.setItem('location', userLocationText);
+}
+
+function showCurrentLocationError(error){
+  document.getElementById("currentLocationLabel").innerHTML = "Current location is not available.";
+  document.getElementById("currentLocation").classList.add("disabledDiv");
+  localStorage.removeItem('location');
+}
 
 function showUserMessageWall(userMessages, panel) {
   let userWall = document.getElementById(panel);
@@ -358,9 +406,11 @@ function showUserMessageWall(userMessages, panel) {
   let messagesHTML = "";
   userMessages.forEach(function(message, idx){
     let author = message.author;
+    let location = message.location ? message.location : "";
     let content = message.content.replaceAll("\n", "<br>");
 
     messagesHTML += "<h4>Author: " + author + "</h4>";
+    messagesHTML += "<h5>" + location + "</h5>";
     messagesHTML += "<p>" + content + "</p>";
     if (idx != userMessages.length - 1) {
       messagesHTML += "<hr>";
@@ -379,11 +429,13 @@ async function postButtonClicked() {
 
   let newPostTextArea = inHomePanel ? "newPostTextAreaHome" : "newPostTextAreaBrowse";
   let messageText = document.getElementById(newPostTextArea).value;
+  let location = localStorage.getItem("location");
 
   let postMessageDto = {
     "author" : author,
     "owner" : owner,
-    "message" : messageText
+    "message" : messageText,
+    "location" : location
   };
 
   let token = localStorage.getItem("token");

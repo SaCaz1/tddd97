@@ -25,6 +25,7 @@ create table if not exists post(
   owner varchar(255),
   author varchar(255),
   message varchar(1000),
+  location varchar(255),
   FOREIGN KEY (owner) REFERENCES user(email),
   FOREIGN KEY (author) REFERENCES user(email)
 );

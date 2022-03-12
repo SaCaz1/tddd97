@@ -35,6 +35,7 @@ class Post(Base):
     owner = Column('owner', String, ForeignKey("user.email"))
     author = Column('author', String, ForeignKey("user.email"))
     message = Column('message', String)
+    location = Column('location', String)
 
 
 DATABASE_URI = 'database.db'
@@ -145,6 +146,7 @@ def create_message(information):
     post.owner = information["owner"]
     post.author = information["author"]
     post.message = information["message"]
+    post.location = information["location"]
 
     try:
         session = get_session()
