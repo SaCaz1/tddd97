@@ -1,2 +1,2 @@
-#!/usr/bin/bash
-sqlite3 database.db < schema.sql
+#!/bin/bash
+sqlite3 database.db < ./lab04_Final_Project/schema.sql

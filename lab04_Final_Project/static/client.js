@@ -118,8 +118,10 @@ async function connectWebsocket() {
   let token = localStorage.getItem("token");
   let email = localStorage.getItem("loggedInUserEmail");
   let hash = await sign_crypto(email + token, token);
+  let port = window.location.port !== ""? ":" + window.location.port : "";
+  let protocol = window.location.protocol === "https:"? "wss://" : "ws://";
 
-  let socket = io("ws://" + window.location.hostname + ":5000/autologout", {
+  let socket = io(protocol + window.location.hostname + port + "/autologout", {
     auth: {
       token : hash,
       public_key: email
@@ -654,23 +656,8 @@ async function submitSignOut() {
   loadPage();
 }
 
-async function sign_crypto(message, key) {
-  const getUtf8Bytes = str =>
-    new Uint8Array(
-      [...unescape(encodeURIComponent(str))].map(c => c.charCodeAt(0))
-    );
-
-  const keyBytes = getUtf8Bytes(key);
-  const messageBytes = getUtf8Bytes(message);
-
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' },
-    true, ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', cryptoKey, messageBytes);
-
-  // to lowercase hexits
-  lower_hex = [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
-
-  return lower_hex;
+function sign_crypto(message, key) {
+  var hash = CryptoJS.HmacSHA256(message, key);
+  var hashInHex = CryptoJS.enc.Hex.stringify(hash);
+  return hashInHex;
 }
