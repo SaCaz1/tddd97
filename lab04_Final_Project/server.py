@@ -34,10 +34,26 @@ app.register_blueprint(google_bp, url_prefix="/login")
 
 @app.teardown_request
 def after_request(exception):
+    """Closes database connection after the request has been proceeded.
+
+    Parameters
+    ----------
+    exception : Error
+        Exception that occured during request execution if any.
+    """
+
     database_helper.close_session()
 
 @socketio.on("connect", namespace='/autologout')
 def connection_open(auth):
+    """Validates websocket connection request signature and attaches the client to the right room
+
+    Parameters
+    ----------
+    auth : dict
+        Dictionairy containing authentication information - publick key and token
+    """
+
     if not auth or not 'token' in auth or not 'public_key' in auth or not check_signature_websocket(auth["token"], auth["public_key"]):
         raise ConnectionRefusedError("unauthenticated")
 
@@ -45,6 +61,14 @@ def connection_open(auth):
     join_room(token)
 
 def send_autologout(token):
+    """Emits autologout event to all client associated with the token
+
+    Parameters
+    ----------
+    token : str
+        Identifier of the room to which the event should be emited.
+    """
+
     emit("autologout", to=token, namespace='/autologout')
 
 @app.route("/", methods = ["GET"])
@@ -53,10 +77,26 @@ def send_autologout(token):
 @app.route("/browse", methods = ["GET"])
 @app.route("/account", methods = ["GET"])
 def serve_app():
+    """Serves the application to the client.
+
+    Returns
+    -------
+    Response
+        A response containing "client.html" page.
+    """
+
     return app.send_static_file("client.html")
 
 @app.route("/auth/google", methods=["GET"])
 def google_login():
+    """Redirects unathorized users to google login page or redirects authorized users to home page
+
+    Returns
+    -------
+    Response
+        A response which redirects to appropriate web page
+    """
+
     if not google.authorized:
         return redirect(url_for("google.login"))
 
@@ -67,6 +107,21 @@ def google_login():
 
 @oauth_authorized.connect
 def redirect_to_app(blueprint, token):
+    """Redirects authorized oauth user to home page or, if there is a failiure, to root page
+
+    Parameters
+    ----------
+    blueprint : Bluepring
+        Google oauth blueprint that manages google authentication
+    token : dict
+        Dictionary containing credentials from google - access and refresh tokens
+
+    Returns
+    -------
+    Response
+        A response which redirects to appropriate web page
+    """
+
     blueprint.token = token
     try:
         return redirect_authorized_to_home()
@@ -74,6 +129,14 @@ def redirect_to_app(blueprint, token):
         return redirect('/')
 
 def redirect_authorized_to_home():
+    """Redirects authorized oauth user to home page. Creates new user in app's database if needed
+
+    Returns
+    -------
+    Response
+        A response which redirects to root or contains server error status code
+    """
+
     resp = google.get("/oauth2/v1/userinfo")
     user_info_dto = resp.json()
     token = utils.generate_token()
@@ -93,6 +156,21 @@ def redirect_authorized_to_home():
     return response
 
 def google_sign_in(email, token):
+    """Creates new session for existing google user. Closes old sessions if any
+
+    Parameters
+    ----------
+    email : str
+        User's email
+    token : str
+        Token for user's new session to be used
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - error response body and error code. None if no errors
+    """
+
     old_sessions = database_helper.read_all_user_sessions(email)
 
     if database_helper.create_logged_in_user(email, token) != DatabaseErrorCode.Success:
@@ -106,6 +184,21 @@ def google_sign_in(email, token):
                 return "{}", 500 #Internal Server Error
 
 def google_sign_up(user_info_dto, token):
+    """Creates new user and session for new google user.
+
+    Parameters
+    ----------
+    user_info_dto : dict
+        User's information needed to create app's account
+    token : str
+        Token for new user's session to be used
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - error response body and error code. None if no errors
+    """
+
     user_info = {
         "email": user_info_dto["email"],
         "password": None,
@@ -124,6 +217,20 @@ def google_sign_up(user_info_dto, token):
 
 @app.route('/sign_in', methods=['POST'])
 def sign_in():
+    """Performs sign in for normal users. Creates new sesion for the user.
+
+    "username" and "password" should be present in request's body. If there are any old sesions they will be closed
+
+    See Also
+    --------
+    validate_password
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - response body and status code. In case of successful sign in response body contains session token
+    """
+
     json = request.get_json()
 
     if "username" not in json or "password" not in json:
@@ -163,6 +270,20 @@ def sign_in():
 
 @app.route('/sign_up', methods=['POST'])
 def sign_up():
+    """Performs sign up for normal users. Creates new user record in database
+
+    ""email", "password", "first_name", "family_name", "gender", "city", "country" should be present in request's body.
+
+    See Also
+    --------
+    generate_secure_password
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - response body and status code. In case of successful sign up response body contains created user public info
+    """
+
     json = request.get_json()
 
     for key in ["email", "password", "first_name", "family_name", "gender", "city", "country"]:
@@ -194,6 +315,20 @@ def sign_up():
 
 @app.route('/sign_out', methods=['DELETE'])
 def sign_out():
+    """Performs sign out for normal users
+
+    Request signature is required. Deletes active user's session. Revokes google access token if any.
+
+    See Also
+    --------
+    check_signature
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - response body and status code.
+    """
+
     check_signature_result = check_signature()
     if check_signature_result:
         return check_signature_result
@@ -217,6 +352,20 @@ def sign_out():
 
 @app.route('/change_password', methods=["PUT"])
 def change_password():
+    """Changes password for normal users
+
+    Request signature is required. Request "data" field must contain "old_password" and "new_password" fields.
+
+    See Also
+    --------
+    check_signature, validate_password, generate_secure_password
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - response body and status code.
+    """
+
     check_signature_result = check_signature()
     if check_signature_result:
         return check_signature_result
@@ -237,6 +386,20 @@ def change_password():
 
 @app.route('/get_user_data', methods=['GET', 'POST'])
 def get_user_data():
+    """Retrieves and return user's identified by public key public data
+
+    Request signature is required.
+
+    See Also
+    --------
+    check_signature
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - response body and status code. In case of success response body contains user's public info.
+    """
+
     check_signature_result = check_signature()
     if check_signature_result:
         return check_signature_result
@@ -257,6 +420,25 @@ def get_user_data():
 
 @app.route('/get_user_data/<email>', methods=['GET'])
 def get_user_data_by_email(email):
+    """Retrieves and return user's identified by email public data
+
+    Request signature is required.
+
+    Parameters
+    ----------
+    email : str
+        User's email
+
+    See Also
+    --------
+    check_signature
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - response body and status code.  In case of success response body contains user's public info.
+    """
+
     check_signature_result = check_signature()
     if check_signature_result:
         return check_signature_result
@@ -280,6 +462,20 @@ def get_user_data_by_email(email):
 
 @app.route('/message/get', methods=['GET'])
 def get_user_messages_by_token():
+    """Retrieves and return user's identified by public key messages (aka posts)
+
+    Request signature is required.
+
+    See Also
+    --------
+    check_signature
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - response body and status code.  In case of success response body contains user's messages.
+    """
+
     check_signature_result = check_signature()
     if check_signature_result:
         return check_signature_result
@@ -292,6 +488,25 @@ def get_user_messages_by_token():
 
 @app.route('/message/get/<email>', methods=['GET'])
 def get_user_messages_by_email(email):
+    """Retrieves and return user's identified by email messages (aka posts)
+
+    Request signature is required.
+
+    Parameters
+    ----------
+    email : str
+        User's email
+
+    See Also
+    --------
+    check_signature
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - response body and status code.  In case of success response body contains user's messages.
+    """
+
     check_signature_result = check_signature()
     if check_signature_result:
         return check_signature_result
@@ -313,6 +528,20 @@ def jsonify_messages(messages_result):
 
 @app.route('/message/post', methods=['POST'])
 def post_message():
+    """Creates new message (aka post).
+
+    Request signature is required. Requests body must contain "data" field. It must contain "owner", "message", "author" and "location" fields.
+
+    See Also
+    --------
+    check_signature
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - response body and status code.
+    """
+
     check_signature_result = check_signature()
     if check_signature_result:
         return check_signature_result
@@ -333,6 +562,25 @@ def post_message():
 
 @app.route('/get_user_location/<coords>', methods=['GET'])
 def get_user_location(coords):
+    """Returns city and country of coords
+
+    Request signature is required. geocode.xyz API is used to retrieve information about user's location
+
+    Parameters
+    ----------
+    coords : str
+        Longitude and latitude coordinates of the user seperated by ','.
+
+    See Also
+    --------
+    check_signature
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - response body and status code.  In case of success response body contains user's location info - city and country.
+    """
+
     check_signature_result = check_signature()
     if check_signature_result:
         return check_signature_result
@@ -354,16 +602,53 @@ def get_user_location(coords):
 # SECURITY FUNCITONS
 
 def generate_secure_password(password):
+    """Generates password's hash using bcrypt and random salt
+
+    Parameters
+    ----------
+    password : str
+        Password to be hashed
+
+    Returns
+    -------
+    str
+        Concatenation of the hashed password and 32 characters salt.
+    """
+
     salt = secrets.token_hex(16)
     hashed_password = bcrypt.generate_password_hash(password + salt).decode('utf-8')
     return (hashed_password + salt)
 
 def validate_password(psw_stored, psw_to_validate):
+    """Checks if stored password mathes incoming one using bcrypt
+
+    Parameters
+    ----------
+    password : str
+        Password to be hashed
+
+    Returns
+    -------
+    str
+        Concatenation of the hashed password and 32 characters salt.
+    """
+
     salt = psw_stored[-32:]
     psw_hashed = psw_stored[:-32]
     return bcrypt.check_password_hash(psw_hashed, psw_to_validate + salt)
 
 def check_signature():
+    """Checks if request has valid signature
+
+    Incoming signature must be present in "Authorization" header.
+    For GET and DELETE methods public key is present in "Public-Key" header, for other HTTP methods it must be in "public_key" field of the request body.
+
+    Returns
+    -------
+    Tuple
+        Tuple of two elements - response body and status code. None if there are no errors.
+    """
+
     headers = request.headers
     if "Authorization" not in headers:
         return "{}", 401 #Unauthenticated
@@ -398,9 +683,24 @@ def check_signature():
     return None
 
 def check_signature_websocket(incoming_signature, public_key):
+    """Checks if websocket request has valid signature
+
+    Parameters
+    ----------
+    incoming_signature : str
+        Incoming signature included in the request.
+    public_key : str
+        Public key included in the request.
+
+    Returns
+    -------
+    Bool
+        True if incoming signature is valid. False otherwise.
+    """
+
     user_session = database_helper.read_logged_in_user(public_key)
     if user_session is None:
-        False
+        return False
 
     message = public_key + user_session.token
 
