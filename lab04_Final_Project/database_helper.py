@@ -9,6 +9,8 @@ import subprocess
 subprocess.call('./lab04_Final_Project/setup_database.sh')
 
 class DatabaseErrorCode(Enum):
+    """Error codes for database"""
+
     Success = 0
     IntegrityError = 1
     ObjectNotFound = 2
@@ -17,6 +19,26 @@ class DatabaseErrorCode(Enum):
 Base = declarative_base()
 
 class User(Base):
+    """ Class mapping 'user' table.
+
+    Attributes
+    ----------
+    email : str
+        User's email
+    password : str
+        User's encrypted password
+    first_name : str
+        User's first name
+    family_name : str
+        User's family name
+    gender : str
+        User's gender
+    city : str
+        User's city
+    country : str
+        User's country
+    """
+
     __tablename__ = "user"
     email = Column('email', String, primary_key=True)
     password = Column('password', String)
@@ -27,11 +49,37 @@ class User(Base):
     country = Column('country', String)
 
 class LoggedInUser(Base):
+    """ Class mapping 'logged_in_user' table.
+
+    Attributes
+    ----------
+    username : str
+        User's username
+    token : str
+        Token associated with the user's session
+    """
+
     __tablename__ = "logged_in_user"
     username = Column('username', String, ForeignKey("user.email"))
     token = Column('token', String, primary_key=True)
 
 class Post(Base):
+    """Class mapping 'post' table.
+
+    Attributes
+    ----------
+    id : int
+        Identification number associated with the post
+    owner : str
+        Email of the owner of the post
+    author : str
+        Email of the author of the post
+    message : str
+        Post's message
+    location : str
+        Location of the author when posting
+    """
+
     __tablename__ = "post"
     id = Column('id', Integer, primary_key=True)
     owner = Column('owner', String, ForeignKey("user.email"))
@@ -44,6 +92,14 @@ DATABASE_URI = 'database.db'
 
 
 def get_session():
+    """ Returns the session associated with the database.
+
+    Returns
+    -------
+    Session
+        Session associated with the database
+    """
+
     session = getattr(g, 'session', None)
     if session is None:
         engine = create_engine(f"sqlite:///{DATABASE_URI}")
@@ -56,12 +112,27 @@ def get_session():
     return session
 
 def close_session():
+    """ Closes the session associated with the database."""
+
     session = getattr(g, 'session', None)
     if session is not None:
         session.close()
         g.session = None
 
 def create_user(information):
+    """ Create a new user and add it to the database.
+
+    Parameters
+    ----------
+    information : dict
+        Dictionary containing the new user's information
+
+    Returns
+    -------
+    DatabaseErrorCode
+        Error code indicating if the user was successfully created and added to the database.
+    """
+
     user = User()
     user.email = information["email"]
     user.password = information["password"]
@@ -84,6 +155,19 @@ def create_user(information):
 
 
 def read_user(email):
+    """ Reads and returns user's information from the database.
+
+    Parameters
+    ----------
+    email : string
+        Email of the user to read
+
+    Returns
+    -------
+    User or None
+        User object corresponding to the user's email. None if not found.
+    """
+
     session = get_session()
 
     user = session.query(User).filter(User.email == email).one_or_none()
@@ -92,6 +176,21 @@ def read_user(email):
 
 
 def create_logged_in_user(username, token):
+    """ Create a new logged in user and add it to the database.
+
+    Parameters
+    ----------
+    username : str
+        Logged in user's username
+    token : str
+        Token associated with the user's session
+
+    Returns
+    -------
+    DatabaseErrorCode
+        Error code indicating if the logged in user was created and added to the database successfully
+    """
+
     logged_in_user = LoggedInUser()
     logged_in_user.username = username
     logged_in_user.token = token
@@ -108,16 +207,57 @@ def create_logged_in_user(username, token):
     return DatabaseErrorCode.Success
 
 def read_logged_in_user(email):
+    """ Reads and returns the first logged in user's information corresponding in the database.
+
+    Parameters
+    ----------
+    email : string
+        Email of the logged in user to read
+
+    Returns
+    -------
+    LoggedInUser or None
+        First LoggedInUser object corresponding to the logged in user's email. None if not found.
+    """
+
     session = get_session()
     result = session.query(LoggedInUser).filter(LoggedInUser.username == email).one_or_none()
     return result
 
 def read_all_user_sessions(email):
+    """ Reads and returns logged in user's information from all sessions in the database.
+
+    Parameters
+    ----------
+    email : string
+        Email of the logged in user to read
+
+    Returns
+    -------
+    List
+        List of LoggedInUser object corresponding to the logged in user's email.
+    """
+
     session = get_session()
     results = session.query(LoggedInUser).filter(LoggedInUser.username == email).all()
     return results
 
 def delete_logged_in_user(email, token):
+    """ Deletes the logged in user from database.
+
+    Parameters
+    ----------
+    email : str
+        Email of the logged in user to delete
+    token : str
+        Token associated with the user's session
+
+    Returns
+    -------
+    DatabaseErrorCode
+        Error code indicating if the logged in user was successfully deleted from the database.
+    """
+
     session = get_session()
     result = session.query(LoggedInUser).filter(LoggedInUser.username == email and LoggedInUser.token == token)
     if result.first() is not None:
@@ -129,6 +269,23 @@ def delete_logged_in_user(email, token):
     return DatabaseErrorCode.Success
 
 def read_user_by_token(token):
+    """ Reads and returns user's information from the database using the given token.
+
+    Parameters
+    ----------
+    token : string
+        Token associated with the user's session
+
+    See Also
+    --------
+    read_user
+
+    Returns
+    -------
+    User or None
+        User object corresponding to the token. None if not found.
+    """
+
     session = get_session()
 
     logged_in_user = session.query(LoggedInUser).filter(LoggedInUser.token == token).one_or_none()
@@ -139,11 +296,37 @@ def read_user_by_token(token):
     return read_user(logged_in_user.username)
 
 def read_message(owner_email):
+    """ Reads and returns the messages associated with the owner.
+
+    Parameters
+    ----------
+    owner_email : str
+        Email of the owner of the messages
+
+    Returns
+    -------
+    List
+        List of Post objects corresponding to the messages of the owner
+    """
+
     session = get_session()
     result = session.query(Post).filter(Post.owner == owner_email)
     return result.all()
 
 def create_message(information):
+    """ Create a new message and add it to the database.
+
+    Parameters
+    ----------
+    information : dict
+        Dictionary containing the new message's information
+
+    Returns
+    -------
+    DatabaseErrorCode
+        Error code indicating if the message was successfully created and added to the database.
+    """
+
     post = Post()
     post.owner = information["owner"]
     post.author = information["author"]
@@ -162,6 +345,21 @@ def create_message(information):
     return DatabaseErrorCode.Success
 
 def update_user_password(username, new_password):
+    """ Updates the user's password in the database.
+
+    Parameters
+    ----------
+    username : str
+        Username of the user to update
+    new_password : str
+        New password with which to replace the old password in the database
+
+    Returns
+    -------
+    DatabaseErrorCode
+        Error code indicating if the user's password was successfully updated.
+    """
+
     session = get_session()
     result = session.query(User).filter(User.email == username)
 
